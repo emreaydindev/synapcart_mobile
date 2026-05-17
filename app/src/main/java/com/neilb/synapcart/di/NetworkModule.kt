@@ -5,6 +5,7 @@ import com.neilb.synapcart.data.remote.AuthApiService
 import com.neilb.synapcart.data.remote.FavoritesApiService
 import com.neilb.synapcart.data.remote.SynapCartApiService
 import com.neilb.synapcart.data.remote.UserApiService
+import com.neilb.synapcart.data.remote.interceptor.AuthInterceptor
 import com.neilb.synapcart.util.Constants
 import com.neilb.synapcart.util.SessionManager
 import okhttp3.OkHttpClient
