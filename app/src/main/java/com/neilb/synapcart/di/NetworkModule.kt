@@ -1,23 +1,35 @@
 package com.neilb.synapcart.di
 
+import android.content.Context
+import com.neilb.synapcart.data.remote.AuthApiService
+import com.neilb.synapcart.data.remote.FavoritesApiService
 import com.neilb.synapcart.data.remote.SynapCartApiService
+import com.neilb.synapcart.data.remote.UserApiService
 import com.neilb.synapcart.util.Constants
+import com.neilb.synapcart.util.SessionManager
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 object NetworkModule {
-    private val logging = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
 
-    private val client = OkHttpClient.Builder()
-        .addInterceptor(logging)
-        .build()
+    private lateinit var retrofit: Retrofit
 
-    private val retrofit: Retrofit by lazy {
-        Retrofit.Builder()
+    fun init(context: Context) {
+        val sessionManager = SessionManager(context)
+        val authInterceptor = AuthInterceptor(sessionManager)
+
+        val logging = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        }
+
+        val client = OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .addInterceptor(logging)
+            .build()
+
+        retrofit = Retrofit.Builder()
             .baseUrl(Constants.BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .client(client)

@@ -18,6 +18,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        com.neilb.synapcart.di.NetworkModule.init(applicationContext)
+
         enableEdgeToEdge()
         setContent {
             SynapCartTheme {
