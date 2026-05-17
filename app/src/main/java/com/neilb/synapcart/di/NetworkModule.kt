@@ -16,12 +16,19 @@ object NetworkModule {
         .addInterceptor(logging)
         .build()
 
-    val apiService: SynapCartApiService by lazy {
+    private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(Constants.BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .client(client)
             .build()
-            .create(SynapCartApiService::class.java)
+    }
+
+    val apiService: SynapCartApiService by lazy {
+        retrofit.create(SynapCartApiService::class.java)
+    }
+
+    val authApiService: AuthApiService by lazy {
+        retrofit.create(AuthApiService::class.java)
     }
 }
