@@ -1,4 +1,4 @@
-package com.neilb.synapcart.domain.use_case
+package com.neilb.synapcart.domain.use_case.chat
 
 data class ChatUseCases(
     val getSessions: GetSessionsUseCase,

@@ -1,4 +1,4 @@
-package com.neilb.synapcart.domain.use_case
+package com.neilb.synapcart.domain.use_case.chat
 
 import com.neilb.synapcart.data.model.SessionResponse
 import com.neilb.synapcart.domain.repository.SynapCartRepository
