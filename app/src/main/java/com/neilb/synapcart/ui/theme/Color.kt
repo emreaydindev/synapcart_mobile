@@ -2,10 +2,17 @@ package com.neilb.synapcart.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val PrimaryCyan = Color(0xFF00C3FF)
+val PrimaryCyanDark = Color(0xFF0091CC)
+val PrimaryCyanLight = Color(0xFFC7F1FF)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+val AccentMint = Color(0xFF33FF99)
+val AccentMintDark = Color(0xFF00CC7D)
+
+val DeepNavy_900 = Color(0xFF0A1929)
+val DeepNavy_800 = Color(0xFF112233)
+
+val OffWhite_50 = Color(0xFFF5F8FA)
+val White = Color(0xFFFFFFFF)
+val NearBlack_900 = Color(0xFF1A1A1A)
+val NearWhite_100 = Color(0xFFE6EAEB)
