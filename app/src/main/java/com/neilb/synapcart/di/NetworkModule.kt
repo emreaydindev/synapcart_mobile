@@ -31,4 +31,12 @@ object NetworkModule {
     val authApiService: AuthApiService by lazy {
         retrofit.create(AuthApiService::class.java)
     }
+
+    val userApiService: UserApiService by lazy {
+        retrofit.create(UserApiService::class.java)
+    }
+
+    val favoritesApiService: FavoritesApiService by lazy {
+        retrofit.create(FavoritesApiService::class.java)
+    }
 }
