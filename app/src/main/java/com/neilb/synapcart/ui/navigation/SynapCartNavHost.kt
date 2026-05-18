@@ -13,6 +13,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.neilb.synapcart.ui.screens.auth.ForgotPasswordScreen
+import com.neilb.synapcart.ui.screens.auth.ForgotPasswordViewModel
 import com.neilb.synapcart.ui.screens.auth.LoginScreen
 import com.neilb.synapcart.ui.screens.auth.LoginViewModel
 import com.neilb.synapcart.ui.screens.auth.RegisterScreen
@@ -95,7 +97,14 @@ fun SynapCartNavHost(
         }
 
         composable(route = Screen.ForgotPassword.route) {
-            PlaceholderScreen("Forgot Password Screen")
+            val forgotPasswordViewModel: ForgotPasswordViewModel = hiltViewModel()
+
+            ForgotPasswordScreen(
+                viewModel = forgotPasswordViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable(
