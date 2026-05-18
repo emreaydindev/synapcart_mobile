@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 fun SplashScreen(
     viewModel: SplashViewModel,
     onNavigateToLogin: () -> Unit,
+    onNavigateToOnboarding: () -> Unit,
     onNavigateToMain: () -> Unit
 ) {
     val destination by viewModel.destination.collectAsState()
@@ -28,6 +29,7 @@ fun SplashScreen(
     LaunchedEffect(destination) {
         when (destination) {
             "login_screen" -> onNavigateToLogin()
+            "onboarding_screen" -> onNavigateToOnboarding()
             "dashboard_screen" -> onNavigateToMain()
         }
     }
@@ -38,25 +40,20 @@ fun SplashScreen(
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = Icons.Default.ShoppingCart,
                 contentDescription = "SynapCart Logo",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(120.dp)
             )
-
             Spacer(modifier = Modifier.height(24.dp))
-
             Text(
                 text = "SynapCart",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-
             Text(
                 text = "AI-Powered Shopping Agent",
                 fontSize = 16.sp,

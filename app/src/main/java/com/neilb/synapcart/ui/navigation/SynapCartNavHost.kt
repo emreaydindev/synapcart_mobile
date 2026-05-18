@@ -6,12 +6,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.neilb.synapcart.ui.screens.auth.LoginScreen
+import com.neilb.synapcart.ui.screens.auth.LoginViewModel
+import com.neilb.synapcart.ui.screens.auth.RegisterScreen
+import com.neilb.synapcart.ui.screens.auth.RegisterViewModel
+import com.neilb.synapcart.ui.screens.splash.SplashScreen
+import com.neilb.synapcart.ui.screens.splash.SplashViewModel
 
 @Composable
 fun SynapCartNavHost(
@@ -23,15 +30,68 @@ fun SynapCartNavHost(
         startDestination = startDestination
     ) {
         composable(route = Screen.Splash.route) {
-            PlaceholderScreen("Splash Screen (Yükleniyor...)")
+            val splashViewModel: SplashViewModel = hiltViewModel()
+
+            SplashScreen(
+                viewModel = splashViewModel,
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToOnboarding = {
+                    navController.navigate(Screen.Onboarding.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToMain = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(route = Screen.Login.route) {
-            PlaceholderScreen("Login Screen")
+            val loginViewModel: LoginViewModel = hiltViewModel()
+
+            LoginScreen(
+                viewModel = loginViewModel,
+                onLoginSuccess = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                },
+                onNavigateToRegister = {
+                    navController.navigate(Screen.Register.route)
+                },
+                onNavigateToForgotPassword = {
+                    navController.navigate(Screen.ForgotPassword.route)
+                },
+                onContinueAsGuest = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(route = Screen.Register.route) {
-            PlaceholderScreen("Register Screen")
+            val registerViewModel: RegisterViewModel = hiltViewModel()
+
+            RegisterScreen(
+                viewModel = registerViewModel,
+                onRegisterSuccess = {
+                    navController.navigate(Screen.Onboarding.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Register.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(route = Screen.ForgotPassword.route) {
@@ -83,6 +143,6 @@ fun SynapCartNavHost(
 @Composable
 fun PlaceholderScreen(title: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = title)
+        Text(text = title, color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground)
     }
 }

@@ -47,7 +47,6 @@ fun RegisterScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Başlık
         Text(
             text = "Hesap Oluştur",
             fontSize = 32.sp,

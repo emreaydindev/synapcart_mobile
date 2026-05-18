@@ -3,12 +3,15 @@ package com.neilb.synapcart.ui.screens.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.domain.use_case.auth.AuthUseCases
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class RegisterViewModel(
+@HiltViewModel
+class RegisterViewModel @Inject constructor(
     private val authUseCases: AuthUseCases
 ) : ViewModel() {
 
@@ -55,11 +58,20 @@ class RegisterViewModel(
             _isLoading.value = true
             _error.value = null
 
-            val result = authUseCases.register(_email.value, _password.value, _fullName.value)
+            val registerResult = authUseCases.register(_fullName.value, _email.value, _password.value)
 
-            result.fold(
+            registerResult.fold(
                 onSuccess = {
-                    _isRegisterSuccess.value = true
+                    val loginResult = authUseCases.login(_email.value, _password.value)
+
+                    loginResult.fold(
+                        onSuccess = {
+                            _isRegisterSuccess.value = true
+                        },
+                        onFailure = {
+                            _error.value = "Kayıt başarılı ancak giriş yapılamadı. Lütfen manuel giriş yapın."
+                        }
+                    )
                 },
                 onFailure = { exception ->
                     _error.value = exception.message ?: "Kayıt sırasında bir hata oluştu."

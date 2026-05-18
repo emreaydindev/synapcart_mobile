@@ -13,12 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.neilb.synapcart.ui.navigation.SynapCartNavHost
 import com.neilb.synapcart.ui.theme.SynapCartTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        com.neilb.synapcart.di.NetworkModule.init(applicationContext)
 
         enableEdgeToEdge()
         setContent {
