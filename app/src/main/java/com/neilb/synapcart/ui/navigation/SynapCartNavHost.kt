@@ -19,6 +19,8 @@ import com.neilb.synapcart.ui.screens.auth.LoginScreen
 import com.neilb.synapcart.ui.screens.auth.LoginViewModel
 import com.neilb.synapcart.ui.screens.auth.RegisterScreen
 import com.neilb.synapcart.ui.screens.auth.RegisterViewModel
+import com.neilb.synapcart.ui.screens.auth.ResetPasswordScreen
+import com.neilb.synapcart.ui.screens.auth.ResetPasswordViewModel
 import com.neilb.synapcart.ui.screens.splash.SplashScreen
 import com.neilb.synapcart.ui.screens.splash.SplashViewModel
 
@@ -114,9 +116,17 @@ fun SynapCartNavHost(
                 navDeepLink { uriPattern = "https://synapcart.app/reset-password?token={token}" },
                 navDeepLink { uriPattern = "synapcart://reset-password?token={token}" }
             )
-        ) { backStackEntry ->
-            val token = backStackEntry.arguments?.getString("token")
-            PlaceholderScreen("Reset Password Screen\nGelen Token: $token")
+        ) {
+            val resetViewModel: ResetPasswordViewModel = hiltViewModel()
+
+            ResetPasswordScreen(
+                viewModel = resetViewModel,
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.ResetPassword.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(route = Screen.Onboarding.route) {
