@@ -7,9 +7,9 @@ import retrofit2.http.PATCH
 
 interface UserApiService {
 
-    @PATCH("api/v1/user/profile")
+    @PATCH("api/v1/user/me")
     suspend fun updateProfile(@Body request: UserProfileUpdateRequest)
 
-    @DELETE("api/v1/user/account")
+    @DELETE("api/v1/user/me")
     suspend fun deleteAccount()
 }

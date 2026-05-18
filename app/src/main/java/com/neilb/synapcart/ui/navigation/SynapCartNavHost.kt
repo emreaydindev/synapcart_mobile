@@ -21,6 +21,8 @@ import com.neilb.synapcart.ui.screens.auth.RegisterScreen
 import com.neilb.synapcart.ui.screens.auth.RegisterViewModel
 import com.neilb.synapcart.ui.screens.auth.ResetPasswordScreen
 import com.neilb.synapcart.ui.screens.auth.ResetPasswordViewModel
+import com.neilb.synapcart.ui.screens.onboarding.OnboardingScreen
+import com.neilb.synapcart.ui.screens.onboarding.OnboardingViewModel
 import com.neilb.synapcart.ui.screens.splash.SplashScreen
 import com.neilb.synapcart.ui.screens.splash.SplashViewModel
 
@@ -130,7 +132,16 @@ fun SynapCartNavHost(
         }
 
         composable(route = Screen.Onboarding.route) {
-            PlaceholderScreen("Onboarding Screen (Dil & Para Birimi)")
+            val onboardingViewModel: OnboardingViewModel = hiltViewModel()
+
+            OnboardingScreen(
+                viewModel = onboardingViewModel,
+                onFinished = {
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                    }
+                }
+            )
         }
 
         composable(route = Screen.Dashboard.route) {
