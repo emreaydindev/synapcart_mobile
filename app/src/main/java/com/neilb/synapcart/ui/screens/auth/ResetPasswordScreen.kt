@@ -27,7 +27,6 @@ fun ResetPasswordScreen(
     val newPassword by viewModel.newPassword.collectAsState()
     val confirmPassword by viewModel.confirmPassword.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
     val isSuccess by viewModel.isSuccess.collectAsState()
 
     Column(
@@ -73,10 +72,6 @@ fun ResetPasswordScreen(
                 modifier = Modifier.padding(bottom = 40.dp),
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
-
-            if (error != null) {
-                Text(text = error!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(bottom = 16.dp))
-            }
 
             SynapCartTextField(
                 value = newPassword,

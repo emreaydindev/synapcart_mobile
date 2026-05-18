@@ -26,6 +26,7 @@ import com.neilb.synapcart.domain.use_case.user.DeleteAccountUseCase
 import com.neilb.synapcart.domain.use_case.user.UpdateProfileUseCase
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.SessionManager
+import com.neilb.synapcart.util.SnackbarController
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -98,5 +99,11 @@ object AppModule {
             updateProfile = UpdateProfileUseCase(repository),
             deleteAccount = DeleteAccountUseCase(repository)
         )
+    }
+
+    @Provides
+    @Singleton
+    fun provideSnackbarController(): SnackbarController {
+        return SnackbarController()
     }
 }

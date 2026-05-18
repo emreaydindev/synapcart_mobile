@@ -29,7 +29,6 @@ fun RegisterScreen(
     val email by viewModel.email.collectAsState()
     val password by viewModel.password.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
     val isRegisterSuccess by viewModel.isRegisterSuccess.collectAsState()
 
     LaunchedEffect(isRegisterSuccess) {
@@ -59,14 +58,6 @@ fun RegisterScreen(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
             modifier = Modifier.padding(bottom = 40.dp)
         )
-
-        if (error != null) {
-            Text(
-                text = error!!,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
 
         SynapCartTextField(
             value = fullName,

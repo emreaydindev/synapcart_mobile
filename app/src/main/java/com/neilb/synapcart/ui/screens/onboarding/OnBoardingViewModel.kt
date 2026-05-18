@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.SessionManager
+import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,7 +15,8 @@ import javax.inject.Inject
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
     private val userUseCases: UserUseCases,
-    private val sessionManager: SessionManager
+    private val sessionManager: SessionManager,
+    private val snackbarController: SnackbarController
 ) : ViewModel() {
 
     private val _selectedLanguage = MutableStateFlow("tr")
@@ -53,8 +55,7 @@ class OnboardingViewModel @Inject constructor(
                     _isComplete.value = true
                 },
                 onFailure = { exception ->
-                    // İleride buraya hata göstermek için bir State eklenebilir
-                    // _error.value = exception.message
+                    snackbarController.showSnackbar(exception.message ?: "Bir hata oluştu")
                 }
             )
 

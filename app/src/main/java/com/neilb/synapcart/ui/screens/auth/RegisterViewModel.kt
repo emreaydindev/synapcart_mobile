@@ -3,6 +3,7 @@ package com.neilb.synapcart.ui.screens.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.domain.use_case.auth.AuthUseCases
+import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +13,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val authUseCases: AuthUseCases
+    private val authUseCases: AuthUseCases,
+    private val snackbarController: SnackbarController
 ) : ViewModel() {
 
     private val _fullName = MutableStateFlow("")
@@ -27,36 +29,29 @@ class RegisterViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-
     private val _isRegisterSuccess = MutableStateFlow(false)
     val isRegisterSuccess: StateFlow<Boolean> = _isRegisterSuccess.asStateFlow()
 
     fun onFullNameChange(name: String) {
         _fullName.value = name
-        _error.value = null
     }
 
     fun onEmailChange(newEmail: String) {
         _email.value = newEmail
-        _error.value = null
     }
 
     fun onPasswordChange(newPassword: String) {
         _password.value = newPassword
-        _error.value = null
     }
 
     fun register() {
-        if (_fullName.value.isBlank() || _email.value.isBlank() || _password.value.isBlank()) {
-            _error.value = "Lütfen tüm alanları eksiksiz doldurun."
-            return
-        }
-
         viewModelScope.launch {
+            if (_fullName.value.isBlank() || _email.value.isBlank() || _password.value.isBlank()) {
+                snackbarController.showSnackbar("Lütfen tüm alanları eksiksiz doldurun.")
+                return@launch
+            }
+
             _isLoading.value = true
-            _error.value = null
 
             val registerResult = authUseCases.register(_fullName.value, _email.value, _password.value)
 
@@ -69,12 +64,12 @@ class RegisterViewModel @Inject constructor(
                             _isRegisterSuccess.value = true
                         },
                         onFailure = {
-                            _error.value = "Kayıt başarılı ancak giriş yapılamadı. Lütfen manuel giriş yapın."
+                            snackbarController.showSnackbar("Kayıt başarılı ancak giriş yapılamadı. Lütfen manuel giriş yapın.")
                         }
                     )
                 },
                 onFailure = { exception ->
-                    _error.value = exception.message ?: "Kayıt sırasında bir hata oluştu."
+                    snackbarController.showSnackbar(exception.message ?: "Kayıt sırasında bir hata oluştu.")
                 }
             )
 

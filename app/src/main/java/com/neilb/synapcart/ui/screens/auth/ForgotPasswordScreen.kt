@@ -26,7 +26,6 @@ fun ForgotPasswordScreen(
 ) {
     val email by viewModel.email.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
     val isSuccess by viewModel.isSuccess.collectAsState()
 
     Column(
@@ -91,14 +90,6 @@ fun ForgotPasswordScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 40.dp)
             )
-
-            if (error != null) {
-                Text(
-                    text = error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
 
             SynapCartTextField(
                 value = email,
