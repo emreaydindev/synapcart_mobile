@@ -1,10 +1,13 @@
 package com.neilb.synapcart.ui.screens.auth
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -12,7 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -21,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import com.neilb.synapcart.ui.components.PrimaryButton
 import com.neilb.synapcart.ui.components.SynapCartTextField
 import com.neilb.synapcart.R
+import com.neilb.synapcart.ui.theme.SynapDarkBg
+import com.neilb.synapcart.ui.theme.SynapForeground
 
 @Composable
 fun LoginScreen(
@@ -45,22 +52,37 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 24.dp),
+            .background(SynapDarkBg)
+            .padding(horizontal = 24.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            fontSize = 40.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Image(
+            painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+            contentDescription = "SynapCart Marka Logosu",
+            modifier = Modifier.size(130.dp)
         )
+
         Text(
-            text = "AI-Powered Shopping Agent",
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier.padding(bottom = 48.dp)
+            text = "SynapCart",
+            fontSize = 42.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = FontFamily.SansSerif,
+            color = SynapForeground,
+            letterSpacing = 4.sp
+        )
+
+        Text(
+            text = "Yapay Zeka Destekli Alışveriş Ajanı",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal,
+            fontFamily = FontFamily.SansSerif,
+            color = Color.White.copy(alpha = 0.35f),
+            modifier = Modifier.padding(top = 8.dp, bottom = 40.dp),
+            letterSpacing = 1.5.sp
         )
 
         SynapCartTextField(
@@ -84,11 +106,15 @@ fun LoginScreen(
 
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             TextButton(onClick = onNavigateToForgotPassword) {
-                Text(text = "Şifremi Unuttum", color = MaterialTheme.colorScheme.secondary)
+                Text(
+                    text = "Şifremi Unuttum",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp
+                )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         PrimaryButton(
             text = "Giriş Yap",
@@ -96,21 +122,24 @@ fun LoginScreen(
             isLoading = isLoading
         )
 
+        /*
+        //TODO: guest sessions will be added later
         Spacer(modifier = Modifier.height(24.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(alpha = 0.1f))
             Text(
                 text = "VEYA",
                 modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                color = Color.White.copy(alpha = 0.4f),
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
             )
-            HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(alpha = 0.1f))
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -118,33 +147,47 @@ fun LoginScreen(
         OutlinedButton(
             onClick = onContinueAsGuest,
             modifier = Modifier
+                .getModifierOrEmpty()
                 .fillMaxWidth()
                 .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = SynapForeground),
+            border = BorderStroke(1.5.dp, SynapForeground.copy(alpha = 0.8f))
         ) {
             Text(
                 text = "Misafir Olarak Devam Et",
-                color = MaterialTheme.colorScheme.primary,
+                color = SynapForeground,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
             )
         }
+         */
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 24.dp)
+        ) {
             Text(
-                text = "Hesabın yok mu?",
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                text = "Hesabın yok mu? ",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 15.sp
             )
-            TextButton(onClick = onNavigateToRegister) {
+            TextButton(
+                onClick = onNavigateToRegister,
+                contentPadding = PaddingValues(0.dp)
+            ) {
                 Text(
                     text = "Kayıt Ol",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    color = SynapForeground,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
             }
         }
     }
 }
+
+private fun Modifier.getModifierOrEmpty(): Modifier = this

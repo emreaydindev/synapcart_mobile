@@ -8,6 +8,7 @@ import com.neilb.synapcart.data.repository.ChatStreamRepository
 import com.neilb.synapcart.domain.model.ChatMessage
 import com.neilb.synapcart.domain.use_case.chat.ChatUseCases
 import com.neilb.synapcart.domain.use_case.favorites.FavoritesUseCases
+import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.SessionManager
 import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +23,8 @@ class DashboardViewModel @Inject constructor(
     private val chatUseCases: ChatUseCases,
     private val favoritesUseCases: FavoritesUseCases,
     private val snackbarController: SnackbarController,
-    private val chatStreamRepository: ChatStreamRepository
+    private val chatStreamRepository: ChatStreamRepository,
+    private val userUseCases: UserUseCases
 ) : ViewModel() {
 
     private val _userName = MutableStateFlow("")
@@ -53,16 +55,30 @@ class DashboardViewModel @Inject constructor(
     val currentSessionId: StateFlow<Int?> = _currentSessionId.asStateFlow()
 
     init {
-        loadUserData()
+        loadUserDataAndSync()
         fetchChatHistory()
     }
 
-    private fun loadUserData() {
+    private fun loadUserDataAndSync() {
         viewModelScope.launch {
-            val name = sessionManager.userName.firstOrNull()
-            if (!name.isNullOrBlank()) {
-                _userName.value = name
-            }
+            val localName = sessionManager.userName.firstOrNull()
+            _userName.value = localName ?: ""
+
+            val result = userUseCases.getUser()
+            result.fold(
+                onSuccess = { userProfile ->
+                    if (userProfile.fullName != localName) {
+                        sessionManager.saveUserName(userProfile.fullName)
+                        _userName.value = userProfile.fullName
+                    }
+                },
+                onFailure = { e ->
+                    if (e is retrofit2.HttpException && e.code() == 401) {
+                        sessionManager.clearSession()
+                        snackbarController.showSnackbar("Oturum süresi doldu.")
+                    }
+                }
+            )
         }
     }
 
@@ -76,6 +92,7 @@ class DashboardViewModel @Inject constructor(
                     }
                 },
                 onFailure = { e ->
+                    e.printStackTrace()
                     snackbarController.showSnackbar("Geçmiş yüklenirken hata oluştu: ${e.message}")
                 }
             )
@@ -92,8 +109,19 @@ class DashboardViewModel @Inject constructor(
         _messages.value = emptyList()
         _products.value = emptyList()
         _statusText.value = null
+
         viewModelScope.launch {
-            snackbarController.showSnackbar("$title yüklendi. Konuşmaya devam edebilirsiniz.")
+            val result = chatUseCases.getMessages(sessionId)
+            result.fold(
+                onSuccess = { messagesList ->
+                    _messages.value = messagesList
+                    snackbarController.showSnackbar("$title yüklendi.")
+                },
+                onFailure = { e ->
+                    e.printStackTrace()
+                    snackbarController.showSnackbar("Mesajlar yüklenemedi: ${e.message}")
+                }
+            )
         }
     }
 
@@ -125,6 +153,8 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
+    private var answer: String? = null
+
     private fun executeChatStream(sessionId: Int, currentText: String) {
         if (_currentChatTitle.value == null) {
             _currentChatTitle.value = currentText
@@ -147,12 +177,10 @@ class DashboardViewModel @Inject constructor(
                     snackbarController.showSnackbar(e.message ?: "İletişim hatası")
                 }
                 .onCompletion {
-                    // HAYAT KURTARAN AYAR: Stream ne şekilde biterse bitsin kilitlenmeyi engeller
                     _isProcessing.value = false
                     _statusText.value = null
                 }
                 .collect { event ->
-                    // Backend'den hata durumu gelirse ekrana basıyoruz
                     if (event.status == "error") {
                         event.analysis?.let { snackbarController.showSnackbar(it) }
                         _isProcessing.value = false
@@ -161,24 +189,28 @@ class DashboardViewModel @Inject constructor(
 
                     event.status?.let { s ->
                         _statusText.value = when (s) {
-                            "searching" -> "İnternette aranıyor"
-                            "thinking" -> "Düşünüyor"
+                            "searching" -> "İnternette aranıyor..."
+                            "thinking" -> "Düşünüyor..."
                             "out_of_scope" -> "Kapsam dışı"
-                            "completed" -> "Tamamlandı"
+                            "completed" -> null
                             else -> s
                         }
                     }
 
                     event.analysis?.let { analysisText ->
-                        val botMsg = ChatMessage(text = analysisText, isUser = false)
-                        _messages.update { it + botMsg }
+                        answer = analysisText
                     }
 
                     event.products?.let { list ->
                         _products.value = list
                     }
 
-                    if (event.status == "completed" || event.status == "out_of_scope") {
+                    if (event.status == "completed") {
+                        if (answer?.isNotEmpty() == true) {
+                            val botMsg = ChatMessage(text = answer.toString(), isUser = false)
+                            _messages.update { it + botMsg }
+                            answer = null
+                        }
                         _isProcessing.value = false
                         delay(1000)
                         _statusText.value = null
@@ -213,7 +245,10 @@ class DashboardViewModel @Inject constructor(
             val result = favoritesUseCases.addFavorite(request)
             result.fold(
                 onSuccess = { snackbarController.showSnackbar("Favorilere eklendi!") },
-                onFailure = { snackbarController.showSnackbar("Favoriye eklenemedi.") }
+                onFailure = { e ->
+                    e.printStackTrace()
+                    snackbarController.showSnackbar("Favoriye eklenemedi.")
+                }
             )
         }
     }

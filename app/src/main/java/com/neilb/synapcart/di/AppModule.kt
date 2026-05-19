@@ -28,6 +28,7 @@ import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.SessionManager
 import com.neilb.synapcart.util.SnackbarController
 import com.google.gson.Gson
+import com.neilb.synapcart.domain.use_case.chat.GetMessagesUseCase
 import com.neilb.synapcart.domain.use_case.user.GetUserUseCase
 import okhttp3.OkHttpClient
 import dagger.Module
@@ -70,6 +71,7 @@ object AppModule {
             getSessions = GetSessionsUseCase(repository),
             sendMessage = SendMessageUseCase(repository),
             createSession = CreateSessionUseCase(repository),
+            getMessages = GetMessagesUseCase(repository)
         )
     }
 

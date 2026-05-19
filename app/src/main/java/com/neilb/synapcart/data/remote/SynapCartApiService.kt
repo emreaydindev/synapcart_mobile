@@ -1,6 +1,7 @@
 package com.neilb.synapcart.data.remote
 
 import com.neilb.synapcart.data.model.*
+import com.neilb.synapcart.domain.model.ChatMessage
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -19,4 +20,7 @@ interface SynapCartApiService {
         @Path("session_id") sessionId: Int,
         @Body request: ChatRequest
     ): AgentResponse
+
+    @GET("api/v1/chat/agent/{session_id}/messages")
+    suspend fun getMessages(@Path("session_id") sessionId: Int): List<ChatMessageResponse>
 }

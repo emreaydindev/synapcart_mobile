@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Menu
@@ -26,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -40,12 +40,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.neilb.synapcart.data.model.ProductDTO
-import com.neilb.synapcart.domain.model.ChatMessage
 import kotlinx.coroutines.launch
 
-val DarkBg = Color(0xFF030712)
-val NeonAccent = Color(0xFFA4E636)
-val SurfaceDark = Color(0xFF111827)
+val DarkBg = Color(0xFF051019)
+val NeonAccent = Color(0xFF27D1B4)
+val SurfaceDark = Color(0xFF051828)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -125,7 +124,7 @@ fun DashboardScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Menu,
+                                imageVector = Icons.Default.Email,
                                 contentDescription = null,
                                 tint = Color.White.copy(alpha = 0.4f),
                                 modifier = Modifier.size(18.dp)
@@ -157,7 +156,7 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Person, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(22.dp))
                         Spacer(modifier = Modifier.width(14.dp))
-                        Text("Profil", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        Text("Profil Ayarları", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
 
                     Row(
@@ -204,7 +203,6 @@ fun DashboardScreen(
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontFamily = FontFamily.Serif,
-                                color = NeonAccent
                             )
                         } else {
                             Text(
@@ -350,6 +348,7 @@ fun DashboardScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // 1. MESAJLAR
                         items(messages) { message ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -359,55 +358,46 @@ fun DashboardScreen(
                                     modifier = Modifier
                                         .background(
                                             color = if (message.isUser) NeonAccent else SurfaceDark,
-                                            shape = RoundedCornerShape(
-                                                topStart = 20.dp,
-                                                topEnd = 20.dp,
-                                                bottomStart = if (message.isUser) 20.dp else 4.dp,
-                                                bottomEnd = if (message.isUser) 4.dp else 20.dp
-                                            )
+                                            shape = RoundedCornerShape(20.dp)
                                         )
                                         .padding(horizontal = 18.dp, vertical = 12.dp)
                                         .widthIn(max = 290.dp)
                                 ) {
+                                    // NULL KONTROLÜ BURADA: message.text null gelirse "" olur.
+                                    val safeText = message.text ?: ""
                                     if (message.isUser) {
-                                        Text(text = message.text, color = DarkBg, fontSize = 15.sp)
+                                        Text(text = safeText, color = DarkBg, fontSize = 15.sp)
                                     } else {
-                                        val annotated = remember(message.text) { parseAiStyledText(message.text) }
+                                        val annotated = remember(safeText) { parseAiStyledText(safeText) }
                                         Text(text = annotated, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
                                     }
                                 }
                             }
                         }
 
+                        // 2. STATUS
                         if (statusText != null) {
                             item {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Start
-                                ) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                     if (isProcessing) {
                                         CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonAccent, strokeWidth = 2.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                     }
-                                    Text(text = statusText ?: "", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                                    Text(text = statusText!!, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
                                 }
                             }
                         }
 
+                        // 3. ÜRÜNLER (Kendi Card yapın)
                         if (products.isNotEmpty()) {
                             item {
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Text(text = "Bulunan Ürünler", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                Spacer(modifier = Modifier.height(8.dp))
                             }
 
                             val productChunks = products.chunked(2)
                             items(productChunks) { chunk ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     chunk.forEach { product ->
                                         Card(
                                             modifier = Modifier
@@ -418,47 +408,23 @@ fun DashboardScreen(
                                             shape = RoundedCornerShape(16.dp)
                                         ) {
                                             Column(modifier = Modifier.padding(12.dp)) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .height(90.dp)
-                                                        .fillMaxWidth()
-                                                        .clip(RoundedCornerShape(12.dp))
-                                                        .background(Color.White.copy(alpha = 0.05f)),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
+                                                Box(modifier = Modifier.height(90.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(0.05f))) {
                                                     if (!product.thumbnail.isNullOrBlank()) {
-                                                        AsyncImage(
-                                                            model = product.thumbnail,
-                                                            contentDescription = product.title,
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    } else {
-                                                        Icon(Icons.Default.ArrowBack, contentDescription = null, tint = Color.White.copy(alpha = 0.2f))
+                                                        AsyncImage(model = product.thumbnail, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                                     }
                                                 }
                                                 Spacer(modifier = Modifier.height(8.dp))
-                                                Text(text = product.title ?: "-", color = Color.White, maxLines = 2, fontSize = 14.sp, fontWeight = FontWeight.Medium, overflow = TextOverflow.Ellipsis)
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(text = if (product.price != null) "${product.price} TRY" else "-", color = NeonAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                                    IconButton(
-                                                        onClick = { viewModel.toggleFavorite(product) },
-                                                        modifier = Modifier.size(24.dp)
-                                                    ) {
-                                                        Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = NeonAccent, modifier = Modifier.size(18.dp))
+                                                Text(text = product.title ?: "-", color = Color.White, maxLines = 2, fontSize = 14.sp, overflow = TextOverflow.Ellipsis)
+                                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(text = "${product.price ?: "-"} TRY", color = NeonAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                    IconButton(onClick = { viewModel.toggleFavorite(product) }, modifier = Modifier.size(24.dp)) {
+                                                        Icon(Icons.Default.FavoriteBorder, null, tint = NeonAccent, modifier = Modifier.size(18.dp))
                                                     }
                                                 }
                                             }
                                         }
                                     }
-                                    if (chunk.size == 1) {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
+                                    if (chunk.size == 1) Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }
@@ -469,7 +435,9 @@ fun DashboardScreen(
     }
 }
 
-fun parseAiStyledText(input: String): androidx.compose.ui.text.AnnotatedString {
+fun parseAiStyledText(input: String?): androidx.compose.ui.text.AnnotatedString {
+    if (input.isNullOrBlank()) return buildAnnotatedString { append("") }
+
     val pattern = Regex("(\\*\\*\\*(.+?)\\*\\*\\*|\\*\\*(.+?)\\*\\*|`(.+?)`)")
     val builder = buildAnnotatedString {
         var lastIndex = 0

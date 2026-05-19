@@ -19,3 +19,11 @@ data class ProductDTO(
 data class ChatRequest(
     @SerializedName("message") val message: String
 )
+
+data class ChatMessageResponse(
+    @SerializedName("id") val id: Int,
+    @SerializedName("content") val content: String,
+    @SerializedName("role") val role: String,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("session_id") val sessionId: Int
+)

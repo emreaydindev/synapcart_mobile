@@ -96,7 +96,7 @@ fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
                 if (item.thumbnailUrl != null) {
                     AsyncImage(
                         model = item.thumbnailUrl,
-                        contentDescription = item.productTitle,
+                        contentDescription = item.productTitle ?: "",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -111,10 +111,9 @@ fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Ürün Detayları
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = item.productTitle,
+                    text = item.productTitle ?: "Bilinmeyen Ürün",
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
@@ -124,14 +123,14 @@ fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = item.price,
+                        text = item.price ?: "-",
                         color = NeonAccent,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "• ${item.source}",
+                        text = "• ${item.source ?: "Bilinmiyor"}",
                         color = Color.White.copy(alpha = 0.5f),
                         fontSize = 12.sp
                     )

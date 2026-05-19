@@ -1,9 +1,12 @@
 package com.neilb.synapcart.data.repository
 
+import com.google.gson.Gson
+import com.neilb.synapcart.data.model.ErrorResponse
 import com.neilb.synapcart.data.model.UserProfile
 import com.neilb.synapcart.data.model.UserProfileUpdateRequest
 import com.neilb.synapcart.data.remote.UserApiService
 import com.neilb.synapcart.domain.repository.UserRepository
+import retrofit2.HttpException
 
 class UserRepositoryImpl(
     private val apiService: UserApiService
@@ -14,6 +17,14 @@ class UserRepositoryImpl(
             val request = UserProfileUpdateRequest(fullName, language, currency)
             apiService.updateProfile(request)
             Result.success(Unit)
+        } catch (e: HttpException) {
+            val errorJson = e.response()?.errorBody()?.string()
+            val errorMessage = try {
+                Gson().fromJson(errorJson, ErrorResponse::class.java).detail
+            } catch (_: Exception) {
+                "Sunucu ile iletişimde bir sorun oluştu."
+            }
+            Result.failure(Exception(errorMessage))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -23,6 +34,14 @@ class UserRepositoryImpl(
         return try {
             apiService.deleteAccount()
             Result.success(Unit)
+        } catch (e: HttpException) {
+            val errorJson = e.response()?.errorBody()?.string()
+            val errorMessage = try {
+                Gson().fromJson(errorJson, ErrorResponse::class.java).detail
+            } catch (_: Exception) {
+                "Sunucu ile iletişimde bir sorun oluştu."
+            }
+            Result.failure(Exception(errorMessage))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -32,6 +51,14 @@ class UserRepositoryImpl(
         return try {
             val response = apiService.getUserProfile()
             Result.success(response)
+        } catch (e: HttpException) {
+            val errorJson = e.response()?.errorBody()?.string()
+            val errorMessage = try {
+                Gson().fromJson(errorJson, ErrorResponse::class.java).detail
+            } catch (_: Exception) {
+                "Sunucu ile iletişimde bir sorun oluştu."
+            }
+            Result.failure(Exception(errorMessage))
         } catch (e: Exception) {
             Result.failure(e)
         }

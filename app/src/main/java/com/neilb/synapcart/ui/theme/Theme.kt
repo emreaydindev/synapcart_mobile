@@ -12,10 +12,10 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryCyan,
+    primary = SynapForeground,
     secondary = AccentMint,
     tertiary = PrimaryCyanLight,
-    background = DeepNavy_900,
+    background = SynapDarkBg,
     surface = DeepNavy_800,
     onPrimary = DeepNavy_900,
     onBackground = NearWhite_100,
@@ -23,7 +23,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryCyan,
+    primary = SynapForeground,
     secondary = AccentMintDark,
     tertiary = PrimaryCyanDark,
     background = OffWhite_50,

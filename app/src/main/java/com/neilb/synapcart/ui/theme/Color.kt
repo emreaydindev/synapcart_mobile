@@ -16,3 +16,6 @@ val OffWhite_50 = Color(0xFFF5F8FA)
 val White = Color(0xFFFFFFFF)
 val NearBlack_900 = Color(0xFF1A1A1A)
 val NearWhite_100 = Color(0xFFE6EAEB)
+
+val SynapDarkBg = Color(0xFF051019)
+val SynapForeground = Color(0xFF27D1B4)
