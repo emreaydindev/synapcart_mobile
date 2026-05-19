@@ -2,6 +2,8 @@
 
 SynapCart projesinin mobil ayağı olan bu uygulama, kullanıcılara yapay zeka tabanlı bir alışveriş asistanı deneyimi sunar. Jetpack Compose kullanılarak modern standartlara uygun, temiz ve sürdürülebilir bir mimari ile geliştirilmiştir.
 
+Uygulamayı hemen denemek isterseniz, [Releases sekmesinden güncel debug.apk dosyasını](https://github.com/emreaydindev/synapcart_mobile/releases/tag/v1.0.0_Debug) indirerek cihazınıza kurabilirsiniz.
+
 ## Özellikler
 
 - **AI Destekli Sohbet:** Gemini altyapılı asistan ile ürün sorgulama ve öneri alma.
