@@ -7,3 +7,10 @@ data class UserProfileUpdateRequest(
     @SerializedName("language") val language: String? = null,
     @SerializedName("currency") val currency: String? = null
 )
+
+data class UserProfile(
+    @SerializedName("full_name") val fullName: String,
+    @SerializedName("email") val email: String,
+    @SerializedName("language") val language: String,
+    @SerializedName("currency") val currency: String
+)

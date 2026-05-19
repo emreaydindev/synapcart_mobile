@@ -1,5 +1,6 @@
 package com.neilb.synapcart.data.repository
 
+import com.neilb.synapcart.data.model.UserProfile
 import com.neilb.synapcart.data.model.UserProfileUpdateRequest
 import com.neilb.synapcart.data.remote.UserApiService
 import com.neilb.synapcart.domain.repository.UserRepository
@@ -22,6 +23,15 @@ class UserRepositoryImpl(
         return try {
             apiService.deleteAccount()
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getUserProfile(): Result<UserProfile> {
+        return try {
+            val response = apiService.getUserProfile()
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }

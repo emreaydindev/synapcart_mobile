@@ -45,6 +45,12 @@ class SessionManager(private val context: Context) {
         preferences[USER_NAME_KEY]
     }
 
+    suspend fun saveUserName(userName: String) {
+        context.dataStore.edit { preferences ->
+            preferences[USER_NAME_KEY] = userName
+        }
+    }
+
     suspend fun clearSession() {
         context.dataStore.edit { preferences ->
             preferences.clear()

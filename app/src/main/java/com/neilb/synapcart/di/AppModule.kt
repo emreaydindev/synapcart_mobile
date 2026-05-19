@@ -27,6 +27,9 @@ import com.neilb.synapcart.domain.use_case.user.UpdateProfileUseCase
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.SessionManager
 import com.neilb.synapcart.util.SnackbarController
+import com.google.gson.Gson
+import com.neilb.synapcart.domain.use_case.user.GetUserUseCase
+import okhttp3.OkHttpClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -97,7 +100,8 @@ object AppModule {
     fun provideUserUseCases(repository: UserRepository): UserUseCases {
         return UserUseCases(
             updateProfile = UpdateProfileUseCase(repository),
-            deleteAccount = DeleteAccountUseCase(repository)
+            deleteAccount = DeleteAccountUseCase(repository),
+            getUser = GetUserUseCase(repository)
         )
     }
 
@@ -105,5 +109,15 @@ object AppModule {
     @Singleton
     fun provideSnackbarController(): SnackbarController {
         return SnackbarController()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGson(): Gson = Gson()
+
+    @Provides
+    @Singleton
+    fun provideChatStreamRepository(okHttpClient: OkHttpClient, gson: Gson): com.neilb.synapcart.data.repository.ChatStreamRepository {
+        return com.neilb.synapcart.data.repository.ChatStreamRepositoryImpl(okHttpClient, gson)
     }
 }

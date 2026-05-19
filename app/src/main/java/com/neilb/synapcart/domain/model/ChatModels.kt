@@ -1,10 +1,10 @@
 package com.neilb.synapcart.domain.model
 
 data class ChatMessage(
+    val id: String = java.util.UUID.randomUUID().toString(),
     val text: String,
-    val isFromUser: Boolean,
-    val products: List<Product> = emptyList(),
-    val status: String = "completed"
+    val isUser: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
 )
 
 data class Product(
