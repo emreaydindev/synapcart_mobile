@@ -1,12 +1,11 @@
 package com.neilb.synapcart.domain.use_case.auth
 
 import com.neilb.synapcart.domain.repository.AuthRepository
+import com.neilb.synapcart.util.PasswordRules
 
 class ResetPasswordUseCase(private val repository: AuthRepository) {
     suspend operator fun invoke(token: String, newPassword: String): Result<Unit> {
-        if (newPassword.isBlank()) {
-            return Result.failure(Exception("Yeni şifre boş bırakılamaz."))
-        }
+        PasswordRules.validate(newPassword)?.let { return Result.failure(IllegalArgumentException(it)) }
         return repository.resetPassword(token, newPassword)
     }
 }

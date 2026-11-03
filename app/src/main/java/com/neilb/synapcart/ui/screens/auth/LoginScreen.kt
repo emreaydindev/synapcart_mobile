@@ -34,8 +34,7 @@ fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onNavigateToForgotPassword: () -> Unit,
-    onContinueAsGuest: () -> Unit
+    onNavigateToForgotPassword: () -> Unit
 ) {
     val email by viewModel.email.collectAsState()
     val password by viewModel.password.collectAsState()
@@ -122,47 +121,6 @@ fun LoginScreen(
             isLoading = isLoading
         )
 
-        /*
-        //TODO: guest sessions will be added later
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(alpha = 0.1f))
-            Text(
-                text = "VEYA",
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.White.copy(alpha = 0.4f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(alpha = 0.1f))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedButton(
-            onClick = onContinueAsGuest,
-            modifier = Modifier
-                .getModifierOrEmpty()
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = SynapForeground),
-            border = BorderStroke(1.5.dp, SynapForeground.copy(alpha = 0.8f))
-        ) {
-            Text(
-                text = "Misafir Olarak Devam Et",
-                color = SynapForeground,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
-            )
-        }
-         */
 
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -190,4 +148,3 @@ fun LoginScreen(
     }
 }
 
-private fun Modifier.getModifierOrEmpty(): Modifier = this

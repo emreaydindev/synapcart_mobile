@@ -21,7 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.neilb.synapcart.data.model.ProductDTO
+import com.neilb.synapcart.util.formatPrice
 import com.neilb.synapcart.ui.screens.dashboard.DarkBg
 import com.neilb.synapcart.ui.screens.dashboard.NeonAccent
 import com.neilb.synapcart.ui.screens.dashboard.SurfaceDark
@@ -29,12 +29,17 @@ import com.neilb.synapcart.ui.screens.dashboard.SurfaceDark
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailsScreen(
-    product: ProductDTO,
     viewModel: ProductDetailsViewModel,
     onNavigateBack: () -> Unit,
     onNavigateToWeb: (String) -> Unit
 ) {
-    var isFavorite by remember { mutableStateOf(false) }
+    val product = viewModel.product
+    if (product == null) {
+        LaunchedEffect(Unit) { onNavigateBack() }
+        return
+    }
+    val isFavorite by viewModel.isFavorite.collectAsState()
+    val currency by viewModel.currency.collectAsState()
 
     Scaffold(
         containerColor = DarkBg,
@@ -47,13 +52,10 @@ fun ProductDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        isFavorite = !isFavorite
-                        viewModel.toggleFavorite(product)
-                    }) {
+                    IconButton(onClick = viewModel::toggleFavorite) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = "Favori",
+                            contentDescription = if (isFavorite) "Favorilerden çıkar" else "Favorilere ekle",
                             tint = NeonAccent
                         )
                     }
@@ -69,6 +71,7 @@ fun ProductDetailsScreen(
             ) {
                 Button(
                     onClick = { product.link?.let { onNavigateToWeb(it) } },
+                    enabled = !product.link.isNullOrBlank(),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
@@ -112,7 +115,7 @@ fun ProductDetailsScreen(
 
             Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
                 Text(
-                    text = product.title,
+                    text = product.title ?: "-",
                     color = Color.White,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
@@ -126,7 +129,7 @@ fun ProductDetailsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (product.price != null) "${product.price} TRY" else "Fiyat Belirsiz",
+                        text = formatPrice(product.price, currency) ?: "Fiyat belirsiz",
                         color = NeonAccent,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold

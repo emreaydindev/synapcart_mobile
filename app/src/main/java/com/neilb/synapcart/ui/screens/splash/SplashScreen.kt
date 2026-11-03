@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.neilb.synapcart.R
+import com.neilb.synapcart.ui.navigation.Screen
 import com.neilb.synapcart.ui.theme.SynapDarkBg
 import com.neilb.synapcart.ui.theme.SynapForeground
 
@@ -31,9 +32,9 @@ fun SplashScreen(
 
     LaunchedEffect(destination) {
         when (destination) {
-            "login_screen" -> onNavigateToLogin()
-            "onboarding_screen" -> onNavigateToOnboarding()
-            "dashboard_screen" -> onNavigateToMain()
+            Screen.Login.route -> onNavigateToLogin()
+            Screen.Onboarding.route -> onNavigateToOnboarding()
+            Screen.Dashboard.route -> onNavigateToMain()
         }
     }
 

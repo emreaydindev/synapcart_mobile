@@ -17,13 +17,18 @@ class SessionManager(private val context: Context) {
     companion object {
         private val ACCESS_TOKEN_KEY = stringPreferencesKey("access_token")
         private val USER_NAME_KEY = stringPreferencesKey("user_name")
+        private val CURRENCY_KEY = stringPreferencesKey("currency")
+        private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
+
+        const val DEFAULT_CURRENCY = "TRY"
+        const val DEFAULT_LANGUAGE = "tr"
     }
 
-    suspend fun saveAuthToken(token: String, userName: String) {
+    suspend fun saveAuthToken(token: String, userName: String?) {
         context.dataStore.edit { preferences ->
             preferences[ACCESS_TOKEN_KEY] = token
-            preferences[USER_NAME_KEY] = userName
+            if (!userName.isNullOrBlank()) preferences[USER_NAME_KEY] = userName
         }
     }
 
@@ -45,15 +50,37 @@ class SessionManager(private val context: Context) {
         preferences[USER_NAME_KEY]
     }
 
+    /** The user's display currency (ISO code); products are searched in this currency. */
+    val currency: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[CURRENCY_KEY] ?: DEFAULT_CURRENCY
+    }
+
+    val language: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[LANGUAGE_KEY] ?: DEFAULT_LANGUAGE
+    }
+
     suspend fun saveUserName(userName: String) {
         context.dataStore.edit { preferences ->
             preferences[USER_NAME_KEY] = userName
         }
     }
 
+    suspend fun savePreferences(language: String?, currency: String?) {
+        context.dataStore.edit { preferences ->
+            if (!language.isNullOrBlank()) preferences[LANGUAGE_KEY] = language
+            if (!currency.isNullOrBlank()) preferences[CURRENCY_KEY] = currency
+        }
+    }
+
+    /**
+     * Signs the user out. Device-level settings (onboarding done, language) survive so a
+     * returning user isn't sent through onboarding again.
+     */
     suspend fun clearSession() {
         context.dataStore.edit { preferences ->
-            preferences.clear()
+            preferences.remove(ACCESS_TOKEN_KEY)
+            preferences.remove(USER_NAME_KEY)
+            preferences.remove(CURRENCY_KEY)
         }
     }
 }

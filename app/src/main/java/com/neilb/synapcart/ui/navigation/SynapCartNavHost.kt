@@ -1,11 +1,7 @@
 package com.neilb.synapcart.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -13,7 +9,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.google.gson.Gson
 import com.neilb.synapcart.data.model.ProductDTO
 import com.neilb.synapcart.ui.screens.auth.ForgotPasswordScreen
 import com.neilb.synapcart.ui.screens.auth.ForgotPasswordViewModel
@@ -31,6 +26,9 @@ import com.neilb.synapcart.ui.screens.splash.SplashScreen
 import com.neilb.synapcart.ui.screens.splash.SplashViewModel
 import com.neilb.synapcart.ui.screens.favorites.FavoritesScreen
 import com.neilb.synapcart.ui.screens.favorites.FavoritesViewModel
+import com.neilb.synapcart.ui.screens.favorites.FavoritesViewModel.Companion.toProduct
+import com.neilb.synapcart.util.SelectedProductStore
+import com.neilb.synapcart.util.SessionEvents
 import com.neilb.synapcart.ui.screens.product.ProductDetailsScreen
 import com.neilb.synapcart.ui.screens.product.ProductDetailsViewModel
 import com.neilb.synapcart.ui.screens.product.ProductWebScreen
@@ -40,8 +38,30 @@ import com.neilb.synapcart.ui.screens.profile.ProfileViewModel
 @Composable
 fun SynapCartNavHost(
     navController: NavHostController,
+    sessionEvents: SessionEvents,
+    selectedProductStore: SelectedProductStore,
     startDestination: String = Screen.Splash.route
 ) {
+    // The token was rejected (expired or revoked): the session is already cleared, go to login.
+    LaunchedEffect(sessionEvents) {
+        sessionEvents.expired.collect {
+            val current = navController.currentDestination?.route
+            val onAuthScreen = current == Screen.Login.route || current == Screen.Register.route ||
+                current == Screen.ForgotPassword.route || current == Screen.ResetPassword.route ||
+                current == Screen.Splash.route
+            if (!onAuthScreen) {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+
+    fun openProduct(product: ProductDTO) {
+        selectedProductStore.product = product
+        navController.navigate(Screen.ProductDetails.route)
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -84,11 +104,6 @@ fun SynapCartNavHost(
                 },
                 onNavigateToForgotPassword = {
                     navController.navigate(Screen.ForgotPassword.route)
-                },
-                onContinueAsGuest = {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
                 }
             )
         }
@@ -172,7 +187,8 @@ fun SynapCartNavHost(
             val favoritesViewModel: FavoritesViewModel = hiltViewModel()
             FavoritesScreen(
                 viewModel = favoritesViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onOpenProduct = { favorite -> openProduct(favorite.toProduct()) }
             )
         }
 
@@ -187,23 +203,14 @@ fun SynapCartNavHost(
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onNavigateToProduct = { product ->
-                    val json = Gson().toJson(product)
-                    navController.navigate(Screen.ProductDetails.passProduct(json))
-                }
+                onNavigateToProduct = { product -> openProduct(product) }
             )
         }
 
-        composable(
-            route = Screen.ProductDetails.route,
-            arguments = listOf(navArgument("productJson") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val productJson = backStackEntry.arguments?.getString("productJson") ?: ""
-            val product = Gson().fromJson(productJson, ProductDTO::class.java)
+        composable(route = Screen.ProductDetails.route) {
             val viewModel: ProductDetailsViewModel = hiltViewModel()
 
             ProductDetailsScreen(
-                product = product,
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToWeb = { link ->
@@ -222,12 +229,5 @@ fun SynapCartNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(title: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = title, color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground)
     }
 }

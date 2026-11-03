@@ -1,5 +1,9 @@
 package com.neilb.synapcart.ui.screens.auth
 
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextAlign
+import com.neilb.synapcart.BuildConfig
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -91,6 +95,23 @@ fun RegisterScreen(
             onClick = { viewModel.register() },
             isLoading = isLoading
         )
+
+        val uriHandler = LocalUriHandler.current
+        Text(
+            text = "Kayıt olarak Kullanım Koşulları'nı ve Gizlilik Politikası'nı kabul etmiş olursunuz.",
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+            TextButton(onClick = { uriHandler.openUri(BuildConfig.WEB_URL + "terms") }) {
+                Text("Kullanım Koşulları", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            }
+            TextButton(onClick = { uriHandler.openUri(BuildConfig.WEB_URL + "privacy") }) {
+                Text("Gizlilik Politikası", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            }
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 

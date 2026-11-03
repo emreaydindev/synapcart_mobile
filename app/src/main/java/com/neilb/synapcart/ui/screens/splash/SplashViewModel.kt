@@ -2,6 +2,7 @@ package com.neilb.synapcart.ui.screens.splash
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neilb.synapcart.ui.navigation.Screen
 import com.neilb.synapcart.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -26,17 +27,17 @@ class SplashViewModel @Inject constructor(
 
     private fun checkAuthStatus() {
         viewModelScope.launch {
-            delay(1500)
+            delay(800)
 
             val token = sessionManager.authToken.firstOrNull()
             val onboardingCompleted = sessionManager.isOnboardingCompleted.firstOrNull() ?: false
 
             if (token.isNullOrBlank()) {
-                _destination.value = "login_screen"
+                _destination.value = Screen.Login.route
             } else if (!onboardingCompleted) {
-                _destination.value = "onboarding_screen"
+                _destination.value = Screen.Onboarding.route
             } else {
-                _destination.value = "dashboard_screen"
+                _destination.value = Screen.Dashboard.route
             }
         }
     }

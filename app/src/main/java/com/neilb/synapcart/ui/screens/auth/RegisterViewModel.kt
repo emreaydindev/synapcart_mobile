@@ -45,6 +45,7 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun register() {
+        if (_isLoading.value) return
         viewModelScope.launch {
             if (_fullName.value.isBlank() || _email.value.isBlank() || _password.value.isBlank()) {
                 snackbarController.showSnackbar("Lütfen tüm alanları eksiksiz doldurun.")
@@ -52,27 +53,13 @@ class RegisterViewModel @Inject constructor(
             }
 
             _isLoading.value = true
-
-            val registerResult = authUseCases.register(_fullName.value, _email.value, _password.value)
-
-            registerResult.fold(
-                onSuccess = {
-                    val loginResult = authUseCases.login(_email.value, _password.value)
-
-                    loginResult.fold(
-                        onSuccess = {
-                            _isRegisterSuccess.value = true
-                        },
-                        onFailure = {
-                            snackbarController.showSnackbar("Kayıt başarılı ancak giriş yapılamadı. Lütfen manuel giriş yapın.")
-                        }
-                    )
-                },
-                onFailure = { exception ->
-                    snackbarController.showSnackbar(exception.message ?: "Kayıt sırasında bir hata oluştu.")
+            // Creates the account and signs in with one call.
+            authUseCases.register(_fullName.value, _email.value, _password.value).fold(
+                onSuccess = { _isRegisterSuccess.value = true },
+                onFailure = { e ->
+                    snackbarController.showSnackbar(e.message ?: "Kayıt sırasında bir hata oluştu.")
                 }
             )
-
             _isLoading.value = false
         }
     }

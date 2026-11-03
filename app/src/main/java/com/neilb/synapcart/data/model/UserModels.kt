@@ -9,8 +9,18 @@ data class UserProfileUpdateRequest(
 )
 
 data class UserProfile(
-    @SerializedName("full_name") val fullName: String,
+    @SerializedName("id") val id: String?,
+    @SerializedName("full_name") val fullName: String?,
     @SerializedName("email") val email: String,
-    @SerializedName("language") val language: String,
-    @SerializedName("currency") val currency: String
+    @SerializedName("language") val language: String?,
+    @SerializedName("currency") val currency: String?
+)
+
+data class PasswordChangeRequest(
+    @SerializedName("current_password") val currentPassword: String,
+    @SerializedName("new_password") val newPassword: String
+)
+
+data class AccountDeleteRequest(
+    @SerializedName("password") val password: String?
 )

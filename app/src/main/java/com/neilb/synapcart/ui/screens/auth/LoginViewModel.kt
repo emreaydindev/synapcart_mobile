@@ -38,6 +38,7 @@ class LoginViewModel @Inject constructor(
     }
 
     fun login() {
+        if (_isLoading.value) return
         viewModelScope.launch {
             if (_email.value.isBlank() || _password.value.isBlank()) {
                 snackbarController.showSnackbar("Lütfen e-posta ve şifrenizi girin.")

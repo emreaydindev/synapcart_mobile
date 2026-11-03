@@ -40,12 +40,14 @@ fun ProductWebScreen(
                 WebView(context).apply {
                     webViewClient = WebViewClient()
                     settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    // Never let shop pages read local files.
+                    settings.allowFileAccess = false
+                    settings.allowContentAccess = false
                     loadUrl(url)
                 }
             },
-            update = { webView ->
-                webView.loadUrl(url)
-            }
+            onRelease = { webView -> webView.destroy() }
         )
     }
 }

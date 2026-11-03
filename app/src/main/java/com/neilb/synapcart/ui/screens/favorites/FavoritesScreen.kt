@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.neilb.synapcart.data.model.FavoriteResponse
+import com.neilb.synapcart.util.formatPrice
 import com.neilb.synapcart.ui.screens.dashboard.DarkBg
 import com.neilb.synapcart.ui.screens.dashboard.NeonAccent
 import com.neilb.synapcart.ui.screens.dashboard.SurfaceDark
@@ -30,10 +31,12 @@ import com.neilb.synapcart.ui.screens.dashboard.SurfaceDark
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onOpenProduct: (FavoriteResponse) -> Unit
 ) {
     val favorites by viewModel.favorites.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val loadError by viewModel.loadError.collectAsState()
 
     Scaffold(
         containerColor = DarkBg,
@@ -49,13 +52,21 @@ fun FavoritesScreen(
             )
         }
     ) { innerPadding ->
-        if (isLoading) {
+        if (isLoading && favorites.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = NeonAccent)
             }
         } else if (favorites.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text("Henüz favoriye eklenmiş bir ürün yok.", color = Color.White.copy(alpha = 0.5f))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        loadError ?: "Henüz favoriye eklenmiş bir ürün yok.",
+                        color = Color.White.copy(alpha = 0.5f)
+                    )
+                    if (loadError != null) {
+                        TextButton(onClick = viewModel::refresh) { Text("Tekrar dene", color = NeonAccent) }
+                    }
+                }
             }
         } else {
             LazyColumn(
@@ -68,7 +79,8 @@ fun FavoritesScreen(
                 items(favorites, key = { it.id }) { item ->
                     FavoriteCard(
                         item = item,
-                        onDeleteClick = { viewModel.removeFavorite(item.id) }
+                        onClick = { onOpenProduct(item) },
+                        onDeleteClick = { viewModel.removeFavorite(item) }
                     )
                 }
             }
@@ -76,8 +88,9 @@ fun FavoritesScreen(
     }
 }
 @Composable
-fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
+fun FavoriteCard(item: FavoriteResponse, onClick: () -> Unit, onDeleteClick: () -> Unit) {
     Surface(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         color = SurfaceDark
@@ -123,7 +136,7 @@ fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = item.price ?: "-",
+                        text = formatPrice(item.price, item.currency) ?: "-",
                         color = NeonAccent,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
@@ -140,7 +153,7 @@ fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
             IconButton(onClick = onDeleteClick) {
                 Icon(
                     Icons.Default.Delete,
-                    contentDescription = "Sil",
+                    contentDescription = "Favorilerden çıkar",
                     tint = Color(0xFFEF4444).copy(alpha = 0.8f)
                 )
             }

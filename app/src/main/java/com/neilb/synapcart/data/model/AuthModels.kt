@@ -27,3 +27,7 @@ data class ResetPasswordRequest(
     @SerializedName("token") val token: String,
     @SerializedName("new_password") val newPassword: String
 )
+
+data class MessageResponseBody(
+    @SerializedName("message") val message: String?
+)

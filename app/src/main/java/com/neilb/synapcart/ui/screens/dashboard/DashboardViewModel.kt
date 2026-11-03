@@ -2,20 +2,40 @@ package com.neilb.synapcart.ui.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.neilb.synapcart.data.model.AddFavoriteRequest
+import com.neilb.synapcart.data.model.AgentStreamEvent
 import com.neilb.synapcart.data.model.ProductDTO
+import com.neilb.synapcart.data.model.SessionResponse
 import com.neilb.synapcart.data.repository.ChatStreamRepository
 import com.neilb.synapcart.domain.model.ChatMessage
+import com.neilb.synapcart.domain.repository.AuthRepository
 import com.neilb.synapcart.domain.use_case.chat.ChatUseCases
 import com.neilb.synapcart.domain.use_case.favorites.FavoritesUseCases
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.SessionManager
 import com.neilb.synapcart.util.SnackbarController
+import com.neilb.synapcart.util.parseServerTimestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class ChatSessionItem(
+    val id: Int,
+    val title: String,
+    val createdAt: Long?
+)
+
+/** What the agent is doing for the in-flight message. */
+enum class AgentPhase { SENDING, ROUTING, SEARCHING, THINKING }
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -24,14 +44,15 @@ class DashboardViewModel @Inject constructor(
     private val favoritesUseCases: FavoritesUseCases,
     private val snackbarController: SnackbarController,
     private val chatStreamRepository: ChatStreamRepository,
-    private val userUseCases: UserUseCases
+    private val userUseCases: UserUseCases,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _userName = MutableStateFlow("")
     val userName: StateFlow<String> = _userName.asStateFlow()
 
-    private val _chatHistory = MutableStateFlow<List<Pair<Int, String>>>(emptyList())
-    val chatHistory: StateFlow<List<Pair<Int, String>>> = _chatHistory.asStateFlow()
+    private val _sessions = MutableStateFlow<List<ChatSessionItem>>(emptyList())
+    val sessions: StateFlow<List<ChatSessionItem>> = _sessions.asStateFlow()
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
@@ -39,14 +60,16 @@ class DashboardViewModel @Inject constructor(
     private val _inputText = MutableStateFlow("")
     val inputText: StateFlow<String> = _inputText.asStateFlow()
 
-    private val _statusText = MutableStateFlow<String?>(null)
-    val statusText: StateFlow<String?> = _statusText.asStateFlow()
+    /** Non-null while a message is being answered. */
+    private val _agentPhase = MutableStateFlow<AgentPhase?>(null)
+    val agentPhase: StateFlow<AgentPhase?> = _agentPhase.asStateFlow()
 
-    private val _isProcessing = MutableStateFlow(false)
-    val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
+    /** Products found for the in-flight answer, shown before the analysis arrives. */
+    private val _pendingProducts = MutableStateFlow<List<ProductDTO>>(emptyList())
+    val pendingProducts: StateFlow<List<ProductDTO>> = _pendingProducts.asStateFlow()
 
-    private val _products = MutableStateFlow<List<ProductDTO>>(emptyList())
-    val products: StateFlow<List<ProductDTO>> = _products.asStateFlow()
+    private val _isLoadingMessages = MutableStateFlow(false)
+    val isLoadingMessages: StateFlow<Boolean> = _isLoadingMessages.asStateFlow()
 
     private val _currentChatTitle = MutableStateFlow<String?>(null)
     val currentChatTitle: StateFlow<String?> = _currentChatTitle.asStateFlow()
@@ -54,47 +77,38 @@ class DashboardViewModel @Inject constructor(
     private val _currentSessionId = MutableStateFlow<Int?>(null)
     val currentSessionId: StateFlow<Int?> = _currentSessionId.asStateFlow()
 
+    val favoriteLinks: StateFlow<Set<String>> = favoritesUseCases.favoriteLinks
+
+    val currency: StateFlow<String> = sessionManager.currency
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SessionManager.DEFAULT_CURRENCY)
+
+    val isProcessing: Boolean get() = _agentPhase.value != null
+
+    private var streamJob: Job? = null
+    private var loadJob: Job? = null
+
     init {
-        loadUserDataAndSync()
+        loadUserData()
         fetchChatHistory()
+        viewModelScope.launch { favoritesUseCases.refresh() }
     }
 
-    private fun loadUserDataAndSync() {
+    private fun loadUserData() {
         viewModelScope.launch {
-            val localName = sessionManager.userName.firstOrNull()
-            _userName.value = localName ?: ""
-
-            val result = userUseCases.getUser()
-            result.fold(
-                onSuccess = { userProfile ->
-                    if (userProfile.fullName != localName) {
-                        sessionManager.saveUserName(userProfile.fullName)
-                        _userName.value = userProfile.fullName
-                    }
-                },
-                onFailure = { e ->
-                    if (e is retrofit2.HttpException && e.code() == 401) {
-                        sessionManager.clearSession()
-                        snackbarController.showSnackbar("Oturum süresi doldu.")
-                    }
-                }
-            )
+            _userName.value = sessionManager.userName.firstOrNull().orEmpty()
+            // Also refreshes the cached name / language / currency. A 401 here is handled
+            // globally (session cleared, user sent to login).
+            userUseCases.getUser().onSuccess { profile ->
+                profile.fullName?.takeIf { it.isNotBlank() }?.let { _userName.value = it }
+            }
         }
     }
 
     fun fetchChatHistory() {
         viewModelScope.launch {
-            val result = chatUseCases.getSessions()
-            result.fold(
-                onSuccess = { sessions ->
-                    _chatHistory.value = sessions.map { session ->
-                        Pair(session.id, session.title ?: "Sohbet #${session.id}")
-                    }
-                },
-                onFailure = { e ->
-                    e.printStackTrace()
-                    snackbarController.showSnackbar("Geçmiş yüklenirken hata oluştu: ${e.message}")
-                }
+            chatUseCases.getSessions().fold(
+                onSuccess = { list -> _sessions.value = list.map { it.toItem() } },
+                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Geçmiş yüklenemedi.") }
             )
         }
     }
@@ -103,169 +117,148 @@ class DashboardViewModel @Inject constructor(
         _inputText.value = text
     }
 
-    fun loadSession(sessionId: Int, title: String) {
-        _currentSessionId.value = sessionId
-        _currentChatTitle.value = title
+    fun loadSession(session: ChatSessionItem) {
+        if (session.id == _currentSessionId.value) return
+        cancelInFlight()
+        _currentSessionId.value = session.id
+        _currentChatTitle.value = session.title
         _messages.value = emptyList()
-        _products.value = emptyList()
-        _statusText.value = null
 
-        viewModelScope.launch {
-            val result = chatUseCases.getMessages(sessionId)
-            result.fold(
-                onSuccess = { messagesList ->
-                    _messages.value = messagesList
-                    snackbarController.showSnackbar("$title yüklendi.")
-                },
-                onFailure = { e ->
-                    e.printStackTrace()
-                    snackbarController.showSnackbar("Mesajlar yüklenemedi: ${e.message}")
-                }
+        loadJob = viewModelScope.launch {
+            _isLoadingMessages.value = true
+            chatUseCases.getMessages(session.id).fold(
+                onSuccess = { _messages.value = it },
+                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Mesajlar yüklenemedi.") }
             )
+            _isLoadingMessages.value = false
         }
+    }
+
+    fun sendSuggestion(text: String) {
+        _inputText.value = text
+        handleSendMessage()
     }
 
     fun handleSendMessage() {
-        val currentText = _inputText.value.trim()
-        if (currentText.isEmpty() || _isProcessing.value) return
+        val text = _inputText.value.trim()
+        if (text.isEmpty() || isProcessing) return
 
-        viewModelScope.launch {
-            val sessionId = _currentSessionId.value
-            if (sessionId == null) {
-                _isProcessing.value = true
-                _statusText.value = "Oturum oluşturuluyor..."
-                val result = chatUseCases.createSession()
-                result.fold(
-                    onSuccess = { session ->
-                        _currentSessionId.value = session.id
-                        fetchChatHistory()
-                        executeChatStream(session.id, currentText)
-                    },
-                    onFailure = { e ->
-                        _isProcessing.value = false
-                        _statusText.value = null
-                        handleSessionError(e)
-                    }
-                )
-            } else {
-                executeChatStream(sessionId, currentText)
-            }
-        }
-    }
-
-    private var answer: String? = null
-
-    private fun executeChatStream(sessionId: Int, currentText: String) {
-        if (_currentChatTitle.value == null) {
-            _currentChatTitle.value = currentText
-        }
-
-        val userMessage = ChatMessage(text = currentText, isUser = true)
-        _messages.update { it + userMessage }
         _inputText.value = ""
-        _products.value = emptyList()
+        _messages.update { it + ChatMessage(text = text, isUser = true) }
+        _pendingProducts.value = emptyList()
+        _agentPhase.value = AgentPhase.SENDING
+        if (_currentChatTitle.value == null) _currentChatTitle.value = text
 
-        _isProcessing.value = true
-        _statusText.value = "Gönderildi"
-
-        viewModelScope.launch {
-            chatStreamRepository.streamAgent(sessionId, currentText)
-                .onStart { _statusText.value = "İşleniyor" }
-                .catch { e ->
-                    _isProcessing.value = false
-                    _statusText.value = null
-                    snackbarController.showSnackbar(e.message ?: "İletişim hatası")
+        streamJob = viewModelScope.launch {
+            val sessionId = _currentSessionId.value ?: chatUseCases.createSession().fold(
+                onSuccess = { session ->
+                    _currentSessionId.value = session.id
+                    session.id
+                },
+                onFailure = { e ->
+                    _agentPhase.value = null
+                    snackbarController.showSnackbar(e.message ?: "Sohbet başlatılamadı.")
+                    return@launch
                 }
-                .onCompletion {
-                    _isProcessing.value = false
-                    _statusText.value = null
-                }
-                .collect { event ->
-                    if (event.status == "error") {
-                        event.analysis?.let { snackbarController.showSnackbar(it) }
-                        _isProcessing.value = false
-                        return@collect
-                    }
-
-                    event.status?.let { s ->
-                        _statusText.value = when (s) {
-                            "searching" -> "İnternette aranıyor..."
-                            "thinking" -> "Düşünüyor..."
-                            "out_of_scope" -> "Kapsam dışı"
-                            "completed" -> null
-                            else -> s
-                        }
-                    }
-
-                    event.analysis?.let { analysisText ->
-                        answer = analysisText
-                    }
-
-                    event.products?.let { list ->
-                        _products.value = list
-                    }
-
-                    if (event.status == "completed") {
-                        if (answer?.isNotEmpty() == true) {
-                            val botMsg = ChatMessage(text = answer.toString(), isUser = false)
-                            _messages.update { it + botMsg }
-                            answer = null
-                        }
-                        _isProcessing.value = false
-                        delay(1000)
-                        _statusText.value = null
-                        fetchChatHistory()
-                    }
-                }
+            )
+            streamAnswer(sessionId, text)
         }
     }
 
-    private fun handleSessionError(e: Throwable) {
-        val isUnauthorized = e is retrofit2.HttpException && e.code() == 401
-        viewModelScope.launch {
-            if (isUnauthorized) {
-                sessionManager.clearSession()
-                snackbarController.showSnackbar("Oturum süresi doldu. Tekrar giriş yapın.")
-            } else {
-                snackbarController.showSnackbar(e.message ?: "Oturum oluşturulamadı")
+    private suspend fun streamAnswer(sessionId: Int, text: String) {
+        chatStreamRepository.streamAgent(sessionId, text)
+            .catch { e -> snackbarController.showSnackbar(e.message ?: "İletişim hatası.") }
+            .onCompletion {
+                _agentPhase.value = null
+                _pendingProducts.value = emptyList()
+            }
+            .collect { event -> onStreamEvent(event) }
+        fetchChatHistory() // the server sets the session title from the first message
+    }
+
+    private suspend fun onStreamEvent(event: AgentStreamEvent) {
+        event.products?.let { _pendingProducts.value = it }
+        when (event.status) {
+            AgentStreamEvent.ROUTING -> _agentPhase.value = AgentPhase.ROUTING
+            AgentStreamEvent.SEARCHING -> _agentPhase.value = AgentPhase.SEARCHING
+            AgentStreamEvent.THINKING -> _agentPhase.value = AgentPhase.THINKING
+            AgentStreamEvent.COMPLETED, AgentStreamEvent.OUT_OF_SCOPE -> {
+                val answer = event.analysis.orEmpty()
+                val products = event.products ?: _pendingProducts.value
+                if (answer.isNotBlank() || products.isNotEmpty()) {
+                    _messages.update { it + ChatMessage(text = answer, isUser = false, products = products) }
+                }
+            }
+            AgentStreamEvent.ERROR -> {
+                snackbarController.showSnackbar(event.analysis ?: "Bir hata oluştu. Lütfen tekrar deneyin.")
             }
         }
-
     }
 
     fun toggleFavorite(product: ProductDTO) {
         viewModelScope.launch {
-            val request = AddFavoriteRequest(
-                productTitle = product.title ?: "Bilinmeyen Ürün",
-                productLink = product.link ?: "",
-                price = product.price?.toString() ?: "0",
-                source = product.source ?: "Bilinmiyor",
-                thumbnailUrl = product.thumbnail
+            favoritesUseCases.toggle(product).fold(
+                onSuccess = { added ->
+                    snackbarController.showSnackbar(if (added) "Favorilere eklendi." else "Favorilerden çıkarıldı.")
+                },
+                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Favori güncellenemedi.") }
             )
-            val result = favoritesUseCases.addFavorite(request)
-            result.fold(
-                onSuccess = { snackbarController.showSnackbar("Favorilere eklendi!") },
-                onFailure = { e ->
-                    e.printStackTrace()
-                    snackbarController.showSnackbar("Favoriye eklenemedi.")
-                }
+        }
+    }
+
+    fun renameSession(sessionId: Int, title: String) {
+        val newTitle = title.trim()
+        if (newTitle.isEmpty()) return
+        viewModelScope.launch {
+            chatUseCases.renameSession(sessionId, newTitle).fold(
+                onSuccess = { updated ->
+                    _sessions.update { list -> list.map { if (it.id == sessionId) updated.toItem() else it } }
+                    if (_currentSessionId.value == sessionId) _currentChatTitle.value = updated.title
+                },
+                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Sohbet yeniden adlandırılamadı.") }
+            )
+        }
+    }
+
+    fun deleteSession(sessionId: Int) {
+        viewModelScope.launch {
+            chatUseCases.deleteSession(sessionId).fold(
+                onSuccess = {
+                    _sessions.update { list -> list.filterNot { it.id == sessionId } }
+                    if (_currentSessionId.value == sessionId) resetChat()
+                },
+                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Sohbet silinemedi.") }
             )
         }
     }
 
     fun resetChat() {
+        cancelInFlight()
         _messages.value = emptyList()
-        _products.value = emptyList()
         _currentChatTitle.value = null
         _currentSessionId.value = null
-        _statusText.value = null
         _inputText.value = ""
+    }
+
+    private fun cancelInFlight() {
+        streamJob?.cancel()
+        loadJob?.cancel()
+        _agentPhase.value = null
+        _pendingProducts.value = emptyList()
+        _isLoadingMessages.value = false
     }
 
     fun logout(onLogoutComplete: () -> Unit) {
         viewModelScope.launch {
-            sessionManager.clearSession()
+            cancelInFlight()
+            authRepository.logout()
             onLogoutComplete()
         }
     }
+
+    private fun SessionResponse.toItem() = ChatSessionItem(
+        id = id,
+        title = title?.takeIf { it.isNotBlank() } ?: "Sohbet #$id",
+        createdAt = parseServerTimestamp(createdAt)
+    )
 }

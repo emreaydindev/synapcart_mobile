@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.neilb.synapcart.data.model.ProductDTO
+import com.neilb.synapcart.util.formatPrice
 import kotlinx.coroutines.launch
 
 val DarkBg = Color(0xFF051019)
@@ -56,22 +58,29 @@ fun DashboardScreen(
     onNavigateToProduct: (ProductDTO) -> Unit
 ) {
     val userName by viewModel.userName.collectAsState()
-    val chatHistory by viewModel.chatHistory.collectAsState()
+    val sessions by viewModel.sessions.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val inputText by viewModel.inputText.collectAsState()
     val currentChatTitle by viewModel.currentChatTitle.collectAsState()
-    val isProcessing by viewModel.isProcessing.collectAsState()
-    val statusText by viewModel.statusText.collectAsState()
-    val products by viewModel.products.collectAsState()
+    val agentPhase by viewModel.agentPhase.collectAsState()
+    val pendingProducts by viewModel.pendingProducts.collectAsState()
+    val favoriteLinks by viewModel.favoriteLinks.collectAsState()
+    val currency by viewModel.currency.collectAsState()
+    val isProcessing = agentPhase != null
+    val statusText = when (agentPhase) {
+        AgentPhase.SENDING, AgentPhase.ROUTING -> "Soruyu inceliyorum..."
+        AgentPhase.SEARCHING -> "İnternette aranıyor..."
+        AgentPhase.THINKING -> "Ürünler karşılaştırılıyor..."
+        null -> null
+    }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(messages.size, isProcessing, statusText) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+    LaunchedEffect(messages.size, agentPhase, pendingProducts.size) {
+        val count = listState.layoutInfo.totalItemsCount
+        if (count > 0) listState.animateScrollToItem(count - 1)
     }
 
     ModalNavigationDrawer(
@@ -112,13 +121,13 @@ fun DashboardScreen(
                 )
 
                 LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(chatHistory) { (id, title) ->
+                    items(sessions, key = { it.id }) { session ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
                                     scope.launch { drawerState.close() }
-                                    viewModel.loadSession(id, title)
+                                    viewModel.loadSession(session)
                                 }
                                 .padding(horizontal = 20.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -131,7 +140,7 @@ fun DashboardScreen(
                             )
                             Spacer(modifier = Modifier.width(14.dp))
                             Text(
-                                text = title,
+                                text = session.title,
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontSize = 14.sp,
                                 maxLines = 1,
@@ -297,7 +306,7 @@ fun DashboardScreen(
                         horizontalAlignment = Alignment.Start
                     ) {
                         Text(
-                            text = "Merhaba, ${userName.ifBlank { "Misafir" }}",
+                            text = if (userName.isBlank()) "Merhaba" else "Merhaba, $userName",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -314,9 +323,9 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height(48.dp))
 
                         val suggestions = listOf(
-                            "💻  Fiyat/performans laptop öner",
-                            "🎧  En ucuz AirPods nerede?",
-                            "📱  40.000 TL altı telefon bul"
+                            "Fiyat/performans laptop öner",
+                            "En ucuz AirPods nerede?",
+                            "40.000 TL altı telefon bul"
                         )
 
                         suggestions.forEach { suggestion ->
@@ -324,10 +333,7 @@ fun DashboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 6.dp)
-                                    .clickable {
-                                        viewModel.onInputTextChanged(suggestion.substring(3).trim())
-                                        viewModel.handleSendMessage()
-                                    },
+                                    .clickable { viewModel.sendSuggestion(suggestion) },
                                 shape = RoundedCornerShape(16.dp),
                                 color = SurfaceDark,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(0.05f))
@@ -348,88 +354,116 @@ fun DashboardScreen(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // 1. MESAJLAR
-                        items(messages) { message ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            color = if (message.isUser) NeonAccent else SurfaceDark,
-                                            shape = RoundedCornerShape(20.dp)
-                                        )
-                                        .padding(horizontal = 18.dp, vertical = 12.dp)
-                                        .widthIn(max = 290.dp)
+                        items(messages, key = { it.id }) { message ->
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
                                 ) {
-                                    // NULL KONTROLÜ BURADA: message.text null gelirse "" olur.
-                                    val safeText = message.text ?: ""
-                                    if (message.isUser) {
-                                        Text(text = safeText, color = DarkBg, fontSize = 15.sp)
-                                    } else {
-                                        val annotated = remember(safeText) { parseAiStyledText(safeText) }
-                                        Text(text = annotated, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. STATUS
-                        if (statusText != null) {
-                            item {
-                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                    if (isProcessing) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonAccent, strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                    }
-                                    Text(text = statusText!!, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
-                                }
-                            }
-                        }
-
-                        // 3. ÜRÜNLER (Kendi Card yapın)
-                        if (products.isNotEmpty()) {
-                            item {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(text = "Bulunan Ürünler", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            }
-
-                            val productChunks = products.chunked(2)
-                            items(productChunks) { chunk ->
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    chunk.forEach { product ->
-                                        Card(
+                                    if (message.text.isNotBlank()) {
+                                        Box(
                                             modifier = Modifier
-                                                .weight(1f)
-                                                .padding(vertical = 4.dp)
-                                                .clickable { onNavigateToProduct(product) },
-                                            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                                            shape = RoundedCornerShape(16.dp)
+                                                .background(
+                                                    color = if (message.isUser) NeonAccent else SurfaceDark,
+                                                    shape = RoundedCornerShape(20.dp)
+                                                )
+                                                .padding(horizontal = 18.dp, vertical = 12.dp)
+                                                .widthIn(max = 290.dp)
                                         ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
-                                                Box(modifier = Modifier.height(90.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(0.05f))) {
-                                                    if (!product.thumbnail.isNullOrBlank()) {
-                                                        AsyncImage(model = product.thumbnail, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                                    }
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(text = product.title ?: "-", color = Color.White, maxLines = 2, fontSize = 14.sp, overflow = TextOverflow.Ellipsis)
-                                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(text = "${product.price ?: "-"} TRY", color = NeonAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                                    IconButton(onClick = { viewModel.toggleFavorite(product) }, modifier = Modifier.size(24.dp)) {
-                                                        Icon(Icons.Default.FavoriteBorder, null, tint = NeonAccent, modifier = Modifier.size(18.dp))
-                                                    }
-                                                }
+                                            if (message.isUser) {
+                                                Text(text = message.text, color = DarkBg, fontSize = 15.sp)
+                                            } else {
+                                                val annotated = remember(message.text) { parseAiStyledText(message.text) }
+                                                Text(text = annotated, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
                                             }
                                         }
                                     }
-                                    if (chunk.size == 1) Spacer(modifier = Modifier.weight(1f))
+                                }
+                                if (message.products.isNotEmpty()) {
+                                    ProductGrid(
+                                        products = message.products,
+                                        favoriteLinks = favoriteLinks,
+                                        currency = currency,
+                                        onProductClick = onNavigateToProduct,
+                                        onToggleFavorite = viewModel::toggleFavorite
+                                    )
+                                }
+                            }
+                        }
+
+                        if (statusText != null) {
+                            item(key = "status") {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonAccent, strokeWidth = 2.dp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(text = statusText, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+                                    }
+                                    if (pendingProducts.isNotEmpty()) {
+                                        ProductGrid(
+                                            products = pendingProducts,
+                                            favoriteLinks = favoriteLinks,
+                                            currency = currency,
+                                            onProductClick = onNavigateToProduct,
+                                            onToggleFavorite = viewModel::toggleFavorite
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductGrid(
+    products: List<ProductDTO>,
+    favoriteLinks: Set<String>,
+    currency: String,
+    onProductClick: (ProductDTO) -> Unit,
+    onToggleFavorite: (ProductDTO) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        products.chunked(2).forEach { chunk ->
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                chunk.forEach { product ->
+                    val isFavorite = product.link != null && product.link in favoriteLinks
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onProductClick(product) },
+                        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Box(modifier = Modifier.height(90.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(0.05f))) {
+                                if (!product.thumbnail.isNullOrBlank()) {
+                                    AsyncImage(model = product.thumbnail, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(text = product.title ?: "-", color = Color.White, maxLines = 2, fontSize = 14.sp, overflow = TextOverflow.Ellipsis)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = formatPrice(product.price, currency) ?: "-", color = NeonAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                IconButton(onClick = { onToggleFavorite(product) }) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = if (isFavorite) "Favorilerden çıkar" else "Favorilere ekle",
+                                        tint = NeonAccent,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (chunk.size == 1) Spacer(modifier = Modifier.weight(1f))
             }
         }
     }

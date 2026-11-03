@@ -17,6 +17,8 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.neilb.synapcart.ui.navigation.SynapCartNavHost
 import com.neilb.synapcart.ui.theme.SynapCartTheme
+import com.neilb.synapcart.util.SelectedProductStore
+import com.neilb.synapcart.util.SessionEvents
 import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -26,6 +28,12 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var snackbarController: SnackbarController
+
+    @Inject
+    lateinit var sessionEvents: SessionEvents
+
+    @Inject
+    lateinit var selectedProductStore: SelectedProductStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,7 +56,11 @@ class MainActivity : ComponentActivity() {
                     snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
-                        SynapCartNavHost(navController = navController)
+                        SynapCartNavHost(
+                            navController = navController,
+                            sessionEvents = sessionEvents,
+                            selectedProductStore = selectedProductStore
+                        )
                     }
                 }
             }

@@ -38,10 +38,6 @@ class ResetPasswordViewModel @Inject constructor(
 
     fun resetPassword() {
         viewModelScope.launch {
-            if (_newPassword.value.length < 6) {
-                snackbarController.showSnackbar("Şifre en az 6 karakter olmalıdır.")
-                return@launch
-            }
             if (_newPassword.value != _confirmPassword.value) {
                 snackbarController.showSnackbar("Şifreler birbiriyle eşleşmelidir.")
                 return@launch
