@@ -58,8 +58,11 @@ final class StoreKitManager {
         defer { isPurchasing = false }
 
         var options: Set<Product.PurchaseOption> = []
-        if let userId = app?.plan?.userId ?? (try? await client.profile())?.id,
-           let token = UUID(uuidString: userId) {
+        var userId = app?.plan?.userId
+        if userId == nil {
+            userId = (try? await client.profile())?.id
+        }
+        if let userId, let token = UUID(uuidString: userId) {
             options.insert(.appAccountToken(token))
         }
         do {

@@ -82,7 +82,12 @@ final class PushManager: NSObject {
 
     /// Before logout, so this device stops receiving the user's alerts.
     func unregister() async {
-        guard isAvailable, let token = currentToken ?? (try? await Messaging.messaging().token()) else { return }
+        guard isAvailable else { return }
+        var token = currentToken
+        if token == nil {
+            token = try? await Messaging.messaging().token()
+        }
+        guard let token else { return }
         _ = try? await client.unregisterDeviceToken(token: token)
     }
 }
