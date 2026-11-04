@@ -73,6 +73,18 @@ private fun HttpRequestData.bodyText(): String = when (val content = body) {
     else -> ""
 }
 
+/** Collects an agent stream; on failure the assertion message carries the underlying cause (CI only shows messages). */
+private suspend fun SynapCart.collectStream(sessionId: Int, message: String): List<AgentStreamEvent> = try {
+    stream.streamAgent(sessionId, message).toList()
+} catch (e: ApiException) {
+    val cause = e.cause?.let { "${it::class.simpleName}: ${it.message}" } ?: "none"
+    throw AssertionError("stream failed with ${e::class.simpleName} (detail=${e.detail}, cause=$cause)", e)
+}
+
+private fun sseResponse(body: String): suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = {
+    respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream"))
+}
+
 class ChatStreamTest {
     @Test
     fun parsesEventsUntilTheFinalOne() = realTimeTest {
@@ -93,7 +105,7 @@ class ChatStreamTest {
         val (app, seen) = sdk { respond(sse, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/event-stream")) }
         app.session.saveAuthToken("tok", "Ada")
 
-        val events = app.stream.streamAgent(7, "cheap phone").toList()
+        val events = app.collectStream(7, "cheap phone")
 
         assertEquals(listOf("routing", "searching", "thinking", "completed"), events.map { it.status })
         assertEquals("Phone A", events[2].products!!.single().title)
@@ -103,6 +115,29 @@ class ChatStreamTest {
         assertEquals("https://api.test/api/v1/chat/agent/7/stream", request.url.toString())
         assertEquals("Bearer tok", request.headers[HttpHeaders.Authorization])
         assertEquals("cheap phone", SynapJson.parseToJsonElement(request.bodyText()).jsonObject["message"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun acceptsCrlfLineEndings() = realTimeTest {
+        val body = "data: {\"status\":\"routing\"}\r\n\r\ndata: {\"status\":\"completed\",\"analysis\":\"ok\"}\r\n\r\n"
+        val (app, _) = sdk(sseResponse(body))
+        val events = app.collectStream(1, "x")
+        assertEquals(listOf("routing", "completed"), events.map { it.status })
+        assertEquals("ok", events.last().analysis)
+    }
+
+    @Test
+    fun acceptsAFinalEventWithoutTrailingNewline() = realTimeTest {
+        val body = "data: {\"status\":\"routing\"}\n\ndata: {\"status\":\"out_of_scope\",\"analysis\":\"no\"}"
+        val (app, _) = sdk(sseResponse(body))
+        val events = app.collectStream(1, "x")
+        assertEquals(listOf("routing", "out_of_scope"), events.map { it.status })
+    }
+
+    @Test
+    fun endsQuietlyWhenTheServerClosesBeforeAFinalEvent() = realTimeTest {
+        val (app, _) = sdk(sseResponse("data: {\"status\":\"routing\"}\n\n"))
+        assertEquals(listOf("routing"), app.collectStream(1, "x").map { it.status })
     }
 
     @Test

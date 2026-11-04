@@ -48,7 +48,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
-import io.ktor.utils.io.readUTF8Line
+import io.ktor.utils.io.readLine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -187,7 +187,10 @@ class SynapCartApi(
             }
             val channel = response.bodyAsChannel()
             while (true) {
-                val line = channel.readUTF8Line() ?: break
+                // Non-strict reader: LF or CRLF, and end of stream counts as a line break.
+                // (The deprecated readUTF8Line relied on matching an EOFException message,
+                // which failed on Kotlin/Native.)
+                val line = channel.readLine() ?: break
                 val event = parseSseLine(line) ?: continue
                 emit(event)
                 if (event.isFinal) break
