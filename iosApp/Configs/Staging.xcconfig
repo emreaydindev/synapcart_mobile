@@ -1,0 +1,8 @@
+#include "Base.xcconfig"
+
+API_BASE_URL = https:/$()/staging-api.synapcart.emreaydin.dev/
+WEB_URL = https:/$()/staging.synapcart.emreaydin.dev/
+APP_DISPLAY_NAME = SynapCart β
+
+// Xcode configuration names other than Debug/Release need this for the Kotlin framework.
+KOTLIN_FRAMEWORK_BUILD_TYPE = release

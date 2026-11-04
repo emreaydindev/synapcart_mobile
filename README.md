@@ -1,53 +1,76 @@
-# SynapCart Android Uygulaması
+# SynapCart Mobil (iOS ve Android)
 
-SynapCart projesinin mobil ayağı olan bu uygulama, kullanıcılara yapay zeka tabanlı bir alışveriş asistanı deneyimi sunar. Jetpack Compose kullanılarak modern standartlara uygun, temiz ve sürdürülebilir bir mimari ile geliştirilmiştir.
+SynapCart'ın yapay zekâ destekli alışveriş asistanı uygulamaları. Proje bir **Kotlin Multiplatform** projesidir:
 
-Uygulamayı hemen denemek isterseniz, [Releases sekmesinden güncel debug.apk dosyasını](https://github.com/emreaydindev/synapcart_mobile/releases/tag/v1.0.0_Debug) indirerek cihazınıza kurabilirsiniz.
+| Klasör | İçerik |
+|---|---|
+| `shared/` | Ortak katman (Kotlin Multiplatform). Ktor ile API istemcisi ve SSE ajan akışı, kotlinx.serialization modelleri, repository'ler, oturum deposu (DataStore), şifre ve fiyat kuralları. Android'e kütüphane olarak, iOS'a `Shared.framework` olarak girer. |
+| `iosApp/` | **iOS uygulaması**: SwiftUI, StoreKit 2 ile Premium, Firebase Messaging ile fiyat alarmları, Universal Links. İlk yayın iOS'ta olacak. |
+| `app/` | **Android uygulaması**: Jetpack Compose, Hilt, Play Billing, FCM. |
+
+Backend adresleri:
+
+| Ortam | Adres |
+|---|---|
+| Production | `https://api.synapcart.emreaydin.dev` |
+| Staging | `https://staging-api.synapcart.emreaydin.dev` |
+| Debug | `localhost:8001` (yerel Worker) |
+
+Web adresi: `https://synapcart.emreaydin.dev`
 
 ## Özellikler
 
-- **AI Destekli Sohbet:** Gemini altyapılı asistan ile ürün sorgulama ve öneri alma.
-- **Akıllı Ürün Listeleme:** Yapay zekanın bulduğu ürünleri kart yapısı ile görselleştirme.
-- **Favoriler Yönetimi:** Kullanıcıların beğendiği ürünleri kaydedip yönetebileceği favori sistemi.
-- **Modern Arayüz:** Jetpack Compose ve Material Design 3 ile geliştirilmiş akıcı UI/UX.
-- **Oturum Yönetimi:** Güvenli giriş ve kullanıcı profil ayarları.
+- AI asistan ile sohbet: canlı ajan durumu (SSE), ürün kartları, sohbet geçmişi.
+- Favoriler ve fiyat alarmları (Premium); fiyat düşünce bildirim gelir.
+- Yapay zekâ ile 2–4 ürünü karşılaştırma (Premium).
+- Ücretsiz ve Premium planlar:
+  - iOS'ta App Store abonelikleri (StoreKit 2);
+  - Android'de Google Play Billing;
+  - satın alımlar backend tarafından doğrulanır.
+- Uygulama içinden hesap silme, şifre değiştirme ve şifre sıfırlama (sıfırlama e-posta bağlantısı uygulamada açılır).
+- Türkçe (varsayılan) ve İngilizce.
 
-## Kullanılan Teknolojiler
+## iOS
 
-- **Dil:** Kotlin
-- **UI Framework:** Jetpack Compose (Material 3)
-- **Mimari:** MVVM (Model-View-ViewModel)
-- **Asenkron Programlama:** Kotlin Coroutines & Flow
-- **Görsel Yükleme:** Coil
-- **Dependency Injection:** Dagger Hilt
-- **İletişim:** Retrofit & OkHttp
-
-## Başlarken
-
-### Gereksinimler
-
-- Android Studio (Ladybug veya üzeri)
-- Android SDK 24+
-- Kotlin 1.9+
-
-### Kurulum
-
-1. Projeyi bilgisayarınıza klonlayın:
+Gereksinimler: macOS ve Xcode 16+, JDK 17+ (Kotlin framework'ü Gradle derler), [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
-git clone [<repo-url>](https://github.com/emreaydindev/synapcart_mobile)
+brew install xcodegen
+cd iosApp && xcodegen generate && open SynapCart.xcodeproj
 ```
 
-2. Android Studio ile `synapcart_mobile` klasörünü açın.
-3. Uygulamayı bir emülatör veya gerçek cihaz üzerinde başlatın.
+- **Şemalar:**
+  - `SynapCart` Debug yapılandırmasında yerel backend'e (`http://localhost:8001/`) bağlanır, Release yapılandırmasında production'a.
+  - `SynapCart Staging` staging'e bağlanır.
+  - Adresler `iosApp/Configs/*.xcconfig` dosyalarındadır.
+- **Kotlin framework'ü:** derleme öncesi adım `./gradlew :shared:embedAndSignAppleFrameworkForXcode` komutunu çalıştırır, elle bir şey yapmana gerek yok.
+- **Satın alma testi:** Debug şeması `Configuration.storekit` ile çalışır, yani Xcode içinde App Store Connect olmadan satın alma denenebilir. Bu işlemler Sandbox ortamındadır; staging backend bunları kabul eder.
+- **Push:** `GoogleService-Info.plist` dosyasını `iosApp/SynapCart/Resources/` altına koy (gitignored). Dosya yoksa push kapalı kalır.
+- **Kaynaklar:** metinler, ikon ve fontlar Android'den üretilir:
 
-## Ekran Görüntüleri
+  ```bash
+  python3 iosApp/scripts/generate_resources.py ../synapcart/design/logo_foreground.png
+  ```
 
-<img width="1080" height="2400" alt="WhatsApp Image 2026-05-19 at 23 18 08" src="https://github.com/user-attachments/assets/97974f62-ca67-4fe5-a864-c4db33be0a0a" />
-<img width="921" height="2048" alt="WhatsApp Image 2026-05-19 at 23 18 14" src="https://github.com/user-attachments/assets/9f022e77-f3a8-4d2d-8531-d42a6c1d3663" />
-<img width="921" height="2048" alt="WhatsApp Image 2026-05-19 at 23 18 18" src="https://github.com/user-attachments/assets/48968df7-d56c-48f2-be6c-120222831238" />
-<img width="921" height="2048" alt="WhatsApp Image 2026-05-19 at 23 18 21" src="https://github.com/user-attachments/assets/5a61ff86-c1ee-45a1-8d95-122bbf48494d" />
+App Store'a gönderim adımları için: [docs/IOS_RELEASE.md](docs/IOS_RELEASE.md).
 
----
+## Android
 
-Bu mobil uygulama, BTK yarışma standartlarına uygun olarak kullanıcı deneyimi ön planda tutularak geliştirilmiştir.
+```bash
+./gradlew :app:installDebug                      # emülatör -> yerel backend (10.0.2.2:8001)
+./gradlew :app:assembleStaging                   # staging backend
+./gradlew :app:assembleRelease                   # production (R8; keystore.properties varsa imzalı)
+```
+
+## Testler
+
+```bash
+./gradlew :shared:testAndroidHostTest            # ortak katman (JVM)
+./gradlew :shared:iosSimulatorArm64Test          # ortak katman (iOS simülatörü, macOS)
+./gradlew :app:testDebugUnitTest :app:lintDebug  # Android
+cd iosApp && xcodebuild test -scheme SynapCart -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+GitHub Actions:
+- `.github/workflows/android.yml`: testler, lint, release build ve iOS klib derlemesi;
+- `.github/workflows/ios.yml`: macOS'ta Xcode derlemesi ve testleri. Elle çalıştırıldığında fastlane ile TestFlight'a yükleme de yapar.

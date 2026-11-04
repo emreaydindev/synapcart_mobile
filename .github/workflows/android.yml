@@ -1,0 +1,24 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests (shared + app)
+        run: ./gradlew :shared:testAndroidHostTest :app:testDebugUnitTest
+      - name: Shared module compiles for iOS (klibs)
+        run: ./gradlew :shared:compileKotlinIosArm64 :shared:compileKotlinIosSimulatorArm64
+      - name: Lint and release build
+        run: ./gradlew :app:lintDebug :app:assembleRelease

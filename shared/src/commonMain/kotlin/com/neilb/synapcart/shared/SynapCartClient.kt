@@ -29,13 +29,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 
 /**
  * Swift-friendly facade over [SynapCart]. Kotlin's `Result` and `Flow` don't export well to
  * Objective-C/Swift, so this exposes throwing `suspend` functions (Swift `async throws`;
  * the error's `KotlinException` is an [ApiException]) and callback-based observation
- * returning a [Cancellable]. Android uses the repositories directly instead.
+ * returning a [WatchHandle]. Android uses the repositories directly instead.
  */
 class SynapCartClient(val core: SynapCart) {
 
@@ -73,10 +72,10 @@ class SynapCartClient(val core: SynapCart) {
     suspend fun setNotificationPromptShown() = core.session.setNotificationPromptShown()
 
     /** Calls [onExpired] (on the main thread) whenever the backend rejects the stored token. */
-    fun watchSessionExpired(onExpired: () -> Unit): Cancellable = watch(core.sessionEvents.expired, { onExpired() })
+    fun watchSessionExpired(onExpired: () -> Unit): WatchHandle = watch(core.sessionEvents.expired, { onExpired() })
 
     /** The in-memory plan state (refreshed by every profile load). */
-    fun watchPlan(onChange: (PlanState) -> Unit): Cancellable = watch(core.plan.state, onChange)
+    fun watchPlan(onChange: (PlanState) -> Unit): WatchHandle = watch(core.plan.state, onChange)
 
     // --- Auth (with the same client-side validation as Android) ---
 
@@ -107,7 +106,8 @@ class SynapCartClient(val core: SynapCart) {
         core.user.updateProfile(fullName, language, currency).unwrap()
 
     @Throws(Exception::class)
-    suspend fun changePassword(current: String, new: String) = ChangePasswordUseCase(core.user)(current, new).unwrap()
+    suspend fun changePassword(currentPassword: String, newPassword: String) =
+        ChangePasswordUseCase(core.user)(currentPassword, newPassword).unwrap()
 
     @Throws(Exception::class)
     suspend fun deleteAccount(password: String?) = core.user.deleteAccount(password).unwrap()
@@ -141,13 +141,13 @@ class SynapCartClient(val core: SynapCart) {
         message: String,
         onEvent: (AgentStreamEvent) -> Unit,
         onComplete: (ApiException?) -> Unit
-    ): Cancellable = watch(core.stream.streamAgent(sessionId, message), onEvent, onComplete)
+    ): WatchHandle = watch(core.stream.streamAgent(sessionId, message), onEvent, onComplete)
 
     // --- Favorites ---
 
-    fun watchFavorites(onChange: (List<FavoriteResponse>) -> Unit): Cancellable = watch(core.favorites.favorites, onChange)
+    fun watchFavorites(onChange: (List<FavoriteResponse>) -> Unit): WatchHandle = watch(core.favorites.favorites, onChange)
 
-    fun watchFavoriteLinks(onChange: (Set<String>) -> Unit): Cancellable = watch(core.favorites.favoriteLinks, onChange)
+    fun watchFavoriteLinks(onChange: (Set<String>) -> Unit): WatchHandle = watch(core.favorites.favoriteLinks, onChange)
 
     @Throws(Exception::class)
     suspend fun refreshFavorites(): List<FavoriteResponse> = core.favorites.refresh().unwrap()
@@ -190,7 +190,7 @@ class SynapCartClient(val core: SynapCart) {
 
     // --- Observation helpers ---
 
-    private fun <T> watch(flow: Flow<T>, onEach: (T) -> Unit, onComplete: ((ApiException?) -> Unit)? = null): Cancellable {
+    private fun <T> watch(flow: Flow<T>, onEach: (T) -> Unit, onComplete: ((ApiException?) -> Unit)? = null): WatchHandle {
         var failure: ApiException? = null
         val job = flow
             .onEach { onEach(it) }
@@ -200,14 +200,11 @@ class SynapCartClient(val core: SynapCart) {
             }
             .onCompletion { cause -> if (cause !is CancellationException) onComplete?.invoke(failure) }
             .launchIn(scope)
-        return Cancellable(job)
+        return WatchHandle(job)
     }
-
-    /** Runs [block] on the client scope, for fire-and-forget work started from Swift. */
-    fun launch(block: suspend () -> Unit): Cancellable = Cancellable(scope.launch { block() })
 }
 
 /** Handle returned to Swift for observations and streams. */
-class Cancellable internal constructor(private val job: Job) {
+class WatchHandle internal constructor(private val job: Job) {
     fun cancel() = job.cancel()
 }

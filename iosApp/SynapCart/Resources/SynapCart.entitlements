@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Xcode switches this to "production" when exporting for the App Store. -->
+	<key>aps-environment</key>
+	<string>development</string>
+	<!-- Universal Links: the web serves /.well-known/apple-app-site-association for these hosts. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:synapcart.emreaydin.dev</string>
+		<string>applinks:staging.synapcart.emreaydin.dev</string>
+		<string>webcredentials:synapcart.emreaydin.dev</string>
+	</array>
+</dict>
+</plist>

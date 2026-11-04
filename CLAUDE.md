@@ -2,66 +2,118 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-SynapCart Android app: a Jetpack Compose client for the SynapCart AI shopping assistant. It talks to the FastAPI backend (`synapcart_backend`). The repos are grouped as submodules in the `synapcart` umbrella repo.
+SynapCart mobile is a Kotlin Multiplatform project for the SynapCart AI shopping assistant:
+- `shared/` is a KMP module with the API client, models, repositories, session storage and business rules;
+- `iosApp/` is the SwiftUI iOS app, which ships first;
+- `app/` is the Jetpack Compose Android app.
+
+The backend is a Cloudflare Worker (`synapcart_backend`): production `https://api.synapcart.emreaydin.dev/`, staging `https://staging-api.synapcart.emreaydin.dev/`. The web portal is `https://synapcart.emreaydin.dev/`. All repos are submodules of the `synapcart` umbrella repo.
 
 ## Commands
 
 ```bash
-./gradlew assembleDebug                 # build debug APK
-./gradlew installDebug                  # install on connected device/emulator
-./gradlew test                          # JVM unit tests
-./gradlew connectedAndroidTest          # instrumented tests (needs device)
-./gradlew test --tests "com.neilb.synapcart.ChatStreamRepositoryTest"   # single test class
-./gradlew assembleRelease               # R8-minified release (signed if keystore.properties exists)
-./gradlew lint
+./gradlew :shared:testAndroidHostTest                 # shared tests on the JVM (Ktor MockEngine, in-memory DataStore)
+./gradlew :shared:compileKotlinIosSimulatorArm64      # iOS klib; cross-compiles on Linux (linking needs macOS)
+./gradlew :shared:iosSimulatorArm64Test               # shared tests on the iOS simulator (macOS only)
+./gradlew :app:testDebugUnitTest :app:lintDebug       # Android JVM tests + lint
+./gradlew :app:assembleRelease                        # R8 release (signed if keystore.properties exists)
+./gradlew :app:assembleStaging                        # release-like build against staging-api
+cd iosApp && xcodegen generate                        # (macOS) generates SynapCart.xcodeproj from project.yml
+xcodebuild test -project iosApp/SynapCart.xcodeproj -scheme SynapCart -destination 'platform=iOS Simulator,name=iPhone 16'
+python3 iosApp/scripts/generate_resources.py ../synapcart/design/logo_foreground.png   # iOS strings/icon/fonts from Android
 ```
 
-JVM tests live in `app/src/test`: `PremiumLogicTest` covers 402 codes, price input parsing and the yearly saving; `UtilTest` covers password rules, error parsing, timestamps and price formatting; `UiLogicTest` covers chat markdown, drawer session grouping, `ApiException.uiText` and `AppLocale.normalize`; and `ChatStreamRepositoryTest` runs the SSE client against OkHttp `MockWebServer`. The build uses a version catalog (`gradle/libs.versions.toml`), AGP 9, KSP for Hilt, compileSdk 36.1, targetSdk 36, minSdk 24 and Java 11, with core-library desugaring so `java.time` works on API 24–25.
+Without Android Studio, set `sdk.dir` in `local.properties` (gitignored). The build uses a version catalog, AGP 9 (built-in Kotlin, `com.android.kotlin.multiplatform.library` for `:shared`), Kotlin 2.3.21, KSP 2.3.x for Hilt, compileSdk 36.1, minSdk 24 and Java 11 with desugaring. **Shared-module libraries (Ktor, kotlinx.serialization, coroutines) must be releases built with Kotlin ≤ 2.3**, otherwise the iOS klibs fail with "incompatible ABI version". That is why the catalog pins `ktor`, `kotlinxSerialization` and `kotlinxCoroutinesKmp` below the latest releases.
 
-## Build config and release
+## Shared module (`shared/`)
 
-- `BuildConfig.BASE_URL` is set per build type in `app/build.gradle.kts`. Debug uses `http://10.0.2.2:8001/` (the emulator's host loopback); override it with `./gradlew installDebug -PdebugBaseUrl=http://192.168.1.10:8001/`. Release uses the Render backend. Keep the trailing slash.
-- `BuildConfig.WEB_URL` is the web portal, used for the privacy, terms and support links.
-- Cleartext HTTP is allowed only in debug, and only to `10.0.2.2` and `localhost` (`src/debug/res/xml/network_security_config.xml`). Release is HTTPS-only.
-- Release builds use `isMinifyEnabled` and `isShrinkResources`. `proguard-rules.pro` keeps `data/model/**`, because Gson reflects over the DTOs. New DTOs must stay in that package.
-- Release signing reads `keystore.properties` from the project root, which is gitignored and holds `storeFile`, `storePassword`, `keyAlias` and `keyPassword`. Without it the release APK is unsigned.
-- `allowBackup=false`, and the backup rules exclude DataStore, so the token never leaves the device.
+Packages keep the pre-KMP Android names, so Android imports are unchanged.
 
-## Architecture
+- **`data/model/Models.kt`:** `@Serializable` DTOs mirroring the backend JSON.
+  - Nullable fields default to null.
+  - `SynapJson` keeps explicit nulls, so `FavoriteUpdateRequest(null)` sends `target_price: null` to clear an alert.
+  - `UserProfile.planSource` is `google` or `apple`.
+- **`data/remote/SynapCartApi.kt`:** the Ktor client (OkHttp engine on Android, Darwin on iOS) covering every endpoint.
+  - It adds `Authorization: Bearer` except on `auth/` paths.
+  - On a 401 to an authenticated call it clears the session and fires `SessionEvents.expired`, unless a fresh login raced it.
+  - Non-2xx responses throw `ApiException.fromHttp`.
+  - `streamAgent()` posts to `chat/agent/{id}/stream` and parses SSE `data:` lines into `AgentStreamEvent`, stopping after a final status.
+  - The request timeout is 120 s.
+- **`data/remote/ApiException.kt`:** typed failures `Network(cause)`, `Unauthorized`, `QuotaExceeded(code)` (402: `quota_exceeded` / `premium_required` / `history_locked`), `RateLimited`, `Http(code)` and `Validation(reason)`.
+  - `safeApiCall {}` wraps results in `kotlin.Result`.
+  - There are no string resources here. Android maps exceptions to text in `app/.../data/remote/ApiErrors.kt` (`uiText`, `toUiText`, `validationRes`); iOS does it in `iosApp/.../Core/Interop.swift` (`userMessage`).
+- **`data/repository/*`:**
+  - Auth, User, Favorites (the shared in-memory cache behind `favorites` / `favoriteLinks`), SynapCart (sessions, messages, compare) and ChatStream.
+  - `PlatformHooks` keeps platform work native: `beforeSignOut` unregisters the FCM token, `onProfileLoaded` applies the Android app locale.
+  - `UserRepository.applyProfile` caches a profile returned by store verification.
+- **`domain/*`:** repository interfaces, `ChatMessage`, and use cases grouped into `*UseCases`. Validation reasons are the `util/ValidationReasons` constants.
+- **`util/SessionManager.kt`:** Preferences DataStore (KMP), created by `createSessionDataStore(path)`.
+  - Android keeps the old file `files/datastore/synapcart_prefs.preferences_pb`; iOS uses Documents.
+  - Create exactly one instance per process.
+  - `SessionEvents` lives in the same file.
+- **`util/Rules.kt`:** `PasswordPolicy` (8–72 bytes, letters and digits, mirroring the backend), `parseServerTimestamp`, `parsePriceInput`, `suggestTargetPrice` and `sessionGroupOf` (kotlinx-datetime).
+- **`shared/SynapCart.kt`:** the composition root (API, session, plan, repositories).
+- **`shared/SynapCartClient.kt`:** the Swift facade.
+  - Repositories return `Result` and expose `Flow`s, neither of which exports to Swift, so this class offers `@Throws suspend` functions (Swift `async throws`) and callback-based `watch*`/`streamAgent`, which return a `WatchHandle` to cancel.
+  - Callbacks run on `Dispatchers.Main`.
+  - It also handles `verifyApplePurchase` and iOS device tokens.
+- **`iosMain/.../IosPlatform.kt`:** `createSynapCartClient(baseUrl, hooks, logRequests)` (Swift: `IosPlatformKt.createSynapCartClient`) and the `IosHooks` protocol.
+- **Tests:** `commonTest/SharedTest.kt` runs Ktor `MockEngine` with an in-memory DataStore. Use `realTimeTest {}`, not bare `runTest`, because virtual time fires Ktor's `HttpTimeout` instantly.
 
-Clean-architecture style MVVM under `app/src/main/java/com/neilb/synapcart/`:
+## iOS app (`iosApp/`)
 
-- `data/remote/*ApiService`: Retrofit interfaces split by backend router: auth, chat (`SynapCartApiService`, including `/chat/compare`), user (including device tokens), favorites, billing. `data/model` holds the DTOs that mirror the backend's JSON.
-- `data/repository/*Impl` wrap every call in `safeApiCall {}` (`data/remote/ApiCall.kt`), which returns `kotlin.Result`. Failures become typed `ApiException`s (`Network`, `Unauthorized`, `QuotaExceeded` (402), `RateLimited` (429), `Http`) (plus `Validation(@StringRes)` for client-side checks). Each exposes `uiText`: the backend's `detail` string if present, otherwise a localized string resource. ViewModels show `e.toUiText(fallback)`; never show `e.message`. For endpoints that return 204, declare `Response<Unit>` and call `.requireSuccess()` inside `safeApiCall`.
-- `FavoritesRepository` keeps a shared in-memory cache (`favorites`, `favoriteLinks`), so heart icons are correct on every screen. `toggle(product)` adds the favorite, or removes it with `DELETE /favorites/by-link`.
-- `domain/repository` holds the interfaces. `domain/use_case/*` contains one class per action, grouped into `*UseCases` aggregate data classes. ViewModels inject the aggregate.
-- `di/AppModule.kt` wires repositories and use cases **manually** with `@Provides`, not with `@Binds` or `@Inject` constructors. A new use case must be added both to its `*UseCases` class and to the provider. `di/NetworkModule.kt` provides OkHttp, Retrofit and the API services. OkHttp has the auth interceptor, a long read timeout for the agent, and BODY logging in debug only, with `Authorization` redacted.
-- **Auth and session:**
-  - `util/SessionManager` stores the JWT, user name, language, currency and the onboarding flag in Preferences DataStore. `clearSession()` keeps the onboarding flag and language.
-  - `AuthInterceptor` adds `Authorization: Bearer` to every request except `/auth/` paths. When an authenticated request returns 401 (an expired token, or one revoked by a password change), it clears the session and fires `SessionEvents.expired`. `SynapCartNavHost` collects that event and navigates to Login. A 401 from `/auth/login` just means a wrong password.
-  - `POST /auth/register` returns the user, not a token. `AuthRepository.register` therefore logs in right after.
-- **Chat streaming:**
-  - The chat does not go through Retrofit. `ChatStreamRepository` uses raw OkHttp to POST `api/v1/chat/agent/{sessionId}/stream` and parses each SSE `data:` line into `AgentStreamEvent` (`status`, `analysis`, `products`).
-  - The status sequence is `routing` → `searching` → `thinking` (+products) → `completed` (+analysis, products). It can end instead with `out_of_scope` or `error`, each with an analysis.
-  - The flow ends after a final event, throws `ApiException` on HTTP or network errors, and cancels the call when the collector is cancelled.
-  - `DashboardViewModel` turns the in-flight state into `AgentPhase` and `pendingProducts`, then appends the answer as a `ChatMessage` with its `products`. History from `/messages` restores those products too.
-  - Keep in sync with the backend's `stream_agent()`.
-- **Navigation:** `ui/navigation/Screen.kt` defines routes with query-arg helpers. Products reach `ProductDetails` through the `SelectedProductStore` singleton, not the route; the screen closes if the store is empty after process death. `ProductWeb` takes a URL for an in-app WebView. `SynapCartNavHost` routes Splash to Onboarding, Login or Dashboard based on the session state.
-- **Deep links:** `ResetPassword` accepts `https://synapcart.app/reset-password?token=…` and `synapcart://reset-password?token=…`. These are declared both in `AndroidManifest.xml` intent filters and in the `navDeepLink`s in the NavHost. `synapcart://login` only opens the app; the web portal uses it after a password reset. `https://synapcart.app` links verify through the web portal's `/.well-known/assetlinks.json`.
-- `util/SnackbarController` is an app-wide singleton that emits `UiText`. `MainActivity` resolves it with the activity context and shows it on `LocalSnackbarHostState`. There is no root Scaffold: each screen uses `SynapScaffold` (`ui/components`), which hosts the snackbar and handles its own insets (edge-to-edge, `adjustResize`, the chat input pads for `ime ∪ navigationBars`).
-- **Design system:** `ui/theme` holds `SynapColors` (dark-only tokens and brand/premium gradients), the Plus Jakarta Sans type scale (bundled in `res/font`, OFL license at the repo root), shapes and `Dimens` (spacing, `ScreenPadding`, `ContentMaxWidth`, …). `ui/components` holds the shared pieces: buttons, text field, top bar, brand mark/lockup (`res/drawable/logo_mark.xml` tinted with the gradient), product card and skeletons, empty/error states, chips, chat bubble, agent status indicator, plan/premium badges, quota banner and dialogs. Build new screens from these, not raw Material components.
-- **Splash:** `MainActivity` is an `AppCompatActivity` with `Theme.SynapCart.Starting` (`Theme.SplashScreen`). `installSplashScreen` stays on screen until the NavHost resolves the start destination (`onStartDestinationResolved`).
-- **Plan and premium:**
-  - `UserProfile` carries the backend's effective `plan`, `planExpiresAt`, `usageToday` and `dailyLimit`. `UserRepositoryImpl.cache()` stores the plan in `SessionManager.isPremium` (persisted) and `data/billing/UserPlanRepository.state` (`PlanState`, in memory, also holds the user id). Plan errors are HTTP 402 → `ApiException.QuotaExceeded(detail, code)` with `code` `quota_exceeded`, `premium_required` or `history_locked` (`ApiException.CODE_*`).
-  - **Billing** (`data/billing/BillingRepository`, Play Billing 9 `billing-ktx`): connects with auto-reconnection, loads `ProductDetails` for `BuildConfig.PREMIUM_PRODUCT_ID` and maps the `PREMIUM_PLAN_MONTHLY`/`PREMIUM_PLAN_YEARLY` base plans to `PremiumOffer`s (a developer offer such as a free trial wins over the bare base plan). `launchPurchase` sets `obfuscatedAccountId` to the user id (the backend rejects purchases bound to another account). Every `PURCHASED` purchase is sent to `POST /billing/google/verify`, then acknowledged and `/user/me` is refreshed; a purchase the server can't verify is never acknowledged, so Play refunds it. `restorePurchases()` runs once per process from `DashboardViewModel` (new device, reinstall, interrupted purchase). Results arrive as `PurchaseEvent`s. The product and base-plan ids in `app/build.gradle.kts` are placeholders until the Play Console subscription exists.
-  - `PaywallScreen`/`PaywallViewModel`: the free-vs-premium table (numbers must match the backend `plan_service` and the web `lib/site.ts`), monthly/yearly options with Play's formatted prices and the yearly saving, the buy button (free-trial label when the offer has one), the renewal/cancel terms, and Manage subscription / Terms / Privacy links. Premium users see their status instead. It closes itself after a successful purchase.
-  - **Gating:** premium-only actions open the paywall for free users. `DashboardViewModel` opens it on any 402 unless the user is already premium (the 100/day soft cap only shows the message). Free users' chats past the newest 10 come back `locked` from `/chat/sessions`; the drawer shows a lock and tapping one opens the paywall. The dashboard reloads usage and sessions when the plan changes.
-  - **Price alerts:** the product screen's alert button opens a dialog (`parsePriceInput`, suggested target ≈ 10% under the price) and calls `SetPriceAlertUseCase`, which favorites the product first if needed and PATCHes `/favorites/{id}` (`null` clears it; `FavoritesRepositoryImpl` serializes that body with a nulls-keeping Gson). Favorites show a bell on cards with a `targetPrice`.
-  - **Push** (`data/push`): Firebase Messaging, but the `google-services` plugin is applied only when `app/google-services.json` exists; without it Firebase isn't initialized and `PushRepository` is a no-op. `PushRepository.syncToken()` POSTs `/user/me/device-token` (once per process, and from `SynapCartMessagingService.onNewToken`); logout DELETEs it first. Notifications use channel `price_alerts` (created in `SynapCartApp`, matches the backend). In the background Android shows the FCM notification and the tap starts `MainActivity` with the data as extras; in the foreground `PriceAlertNotifications.show` posts the same thing. `MainActivity` reads the `link` extra and `SynapCartNavHost(pendingProductLink=…)` opens that favorite's product once a signed-in screen is showing.
-  - **Notification permission:** `POST_NOTIFICATIONS` is requested (Android 13+) through `NotificationPermissionController`, which `MainActivity` collects: once after the first favorite, and again whenever a price alert is set.
-  - **Compare:** `CompareScreen` shows the products side by side and calls `POST /chat/compare` (`CompareProductsUseCase`) for per-product pros/cons, the recommended item and a verdict, with loading/retry states.
-- **Formatting:** `util/Formatters.kt` has `parseServerTimestamp` (the backend sends naive UTC) and `formatPrice(amount, currency)`. Products are searched in the user's currency, so format them with `SessionManager.currency`. `util/PasswordRules` mirrors the backend's password rules.
+- **Project:** XcodeGen `project.yml`; `SynapCart.xcodeproj` is generated and gitignored.
+  - Configurations: Debug (`http://localhost:8001/`), Staging (`staging-api`), Release (`api.`). Values come from `Configs/*.xcconfig` → Info.plist (`SynapAPIBaseURL`, `SynapWebURL`, `SynapPremium*`) → `AppConfig.swift`.
+  - A pre-build script runs `./gradlew :shared:embedAndSignAppleFrameworkForXcode`; the Staging configuration sets `KOTLIN_FRAMEWORK_BUILD_TYPE=release`.
+  - Firebase Messaging comes from SPM.
+- **`App/AppState.swift`:** `@Observable` root state.
+  - It holds the route (launching / onboarding / auth / main), toasts, the paywall flag, deep-link reset tokens, a pending product link from push, and mirrors of the plan, favorites and currency.
+  - Mirrored values come from `client.watch*`.
+  - `handle(error)` opens the paywall on a 402 unless the user is premium.
+- **`App/StoreKitManager.swift`:** StoreKit 2 for the group `synapcart_premium` (`synapcart_premium_monthly`/`_yearly`).
+  - Purchases set `appAccountToken` to the user's UUID.
+  - Every verified transaction (purchase, `Transaction.updates`, `currentEntitlements` at sign-in, restore via `AppStore.sync`) goes to `client.verifyApplePurchase(jws)`. The transaction is `finish()`ed only after the server accepts it.
+  - `Resources/Configuration.storekit` is attached to the Debug run scheme.
+- **`App/PushManager.swift`:**
+  - Firebase is configured only if `GoogleService-Info.plist` is bundled; otherwise push is a no-op.
+  - The APNs token is passed to FCM, and the FCM token is sent via `registerDeviceToken` with `platform=ios`.
+  - Permission is asked once after the first favorite and again when a price alert is set.
+  - Tapping a notification reads the `link` data and opens the product.
+- **Features:**
+  - Onboarding (language and currency saved to the profile);
+  - Auth: login, register, forgot password, and reset (`synapcart://reset-password?token=` and the Universal Link `https://synapcart.emreaydin.dev/reset-password?token=`);
+  - Chat (`ChatViewModel`: SSE stream, agent steps, product rows, quota banner, drawer grouped by day with rename, delete and locked chats);
+  - Product detail (SFSafariViewController, favorite, price-alert sheet);
+  - Favorites (select up to 4 to compare), Compare, Paywall (the terms Apple requires, EULA and privacy links, restore, manage subscription);
+  - Profile (preferences, change password, in-app account deletion, legal links).
+- **Strings:** `Resources/Localizable.xcstrings` is generated from the Android `strings.xml` (Turkish source plus English) by `scripts/generate_resources.py`. iOS-only strings live in that script's `IOS_STRINGS`. Swift uses `L("key")`, `L("key", args…)` and `LP("plural", count:, args…)`, and the keys are the Android resource names. The UI language follows iOS per-app settings; the profile language drives assistant replies and emails.
+- **Design:** `Design/Theme.swift` holds the `Synap` colors (same tokens as Android `SynapColors` and the web), Plus Jakarta Sans and button styles; `Design/Components.swift` holds the shared views.
+- **Release:**
+  - `Resources/PrivacyInfo.xcprivacy` and `SynapCart.entitlements` (push, associated domains).
+  - `fastlane/Fastfile` has `beta_staging`, `beta` and `release` lanes, authenticated with an App Store Connect API key.
+  - The steps are in `docs/IOS_RELEASE.md`.
 
-## Strings and language
+## Android app (`app/`)
 
-All user-facing text is in string resources. Turkish is the default (`res/values`, with `resources.properties` setting `unqualifiedResLocale=tr`) and English is in `res/values-en`. Add every new string to both, and use plurals for counts. Brand names and language names are `translatable="false"` and live only in `values`. `res/xml/locales_config.xml` lists the supported locales. `util/AppLocale` applies the per-app language via `AppCompatDelegate.setApplicationLocales`; the language picker (onboarding, profile) applies it and PATCHes the user's `language`, and `UserRepositoryImpl.cache()` re-applies the backend value after login. In code, return `UiText` (`util/UiText.kt`) rather than strings from ViewModels.
+- **Build config:** `BuildConfig.BASE_URL` / `WEB_URL` per build type.
+  - debug: `http://10.0.2.2:8001/`, override with `-PdebugBaseUrl=`;
+  - staging: `staging-api` / `staging.`;
+  - release: `api.` / the main site.
+  - Keep the trailing slash.
+  - Cleartext is allowed only in debug.
+- **DI:** Hilt `di/NetworkModule` builds the shared `SynapCart`. It uses the DataStore path above, `PlatformHooks` (a `PushRepository` provider and `AppLocale`), and debug-only request logging with Authorization redacted. It exposes `SessionManager`, `SessionEvents` and `SynapCartApi`. `di/AppModule` provides the repositories from it and wires the use cases manually (`@Provides`). A new use case must be added both to its `*UseCases` class and to the provider.
+- **UI:** Compose screens, ViewModels and the `ui/theme` + `ui/components` design system are unchanged. ViewModels show `e.toUiText(fallback)`; never `e.message`.
+- **Billing** (`data/billing/BillingRepository`, Play Billing 9):
+  - The `obfuscatedAccountId` is the user id.
+  - Each purchase goes to `SynapCartApi.verifyGooglePurchase`, then is acknowledged, then `/user/me` is refreshed.
+  - The product and base-plan ids in `app/build.gradle.kts` are placeholders.
+- **Push** (`data/push`): FCM. The `google-services` plugin is applied only when `app/google-services.json` exists; device tokens are registered with `platform=android`.
+- **Deep links:** `https://synapcart.emreaydin.dev/reset-password?token=…` (App Links, verified by the web's `assetlinks.json`) and `synapcart://reset-password?token=…`, declared in `AndroidManifest.xml` and in the NavHost `navDeepLink`s.
+- **Release:** `proguard-rules.pro` only needs line-number rules, because kotlinx.serialization, Ktor and DataStore ship consumer rules. Release signing comes from `keystore.properties`.
+- **Tests:** `app/src/test` holds `PremiumLogicTest`, `UtilTest` and `UiLogicTest` (chat markdown, session groups, `ApiException.uiText`, `AppLocale`). Network and SSE tests live in `shared`.
+
+## Conventions
+
+- All user-facing text lives in string resources: Turkish by default (`res/values`), English in `values-en`. iOS gets the same keys through the generator, so add new strings to Android first and rerun the script.
+- Plan limits (Free: 5 messages a day, 3 products, the 10 newest chats; Premium: 100, 8, unlimited) appear in the Android strings, the iOS paywall table, the web `lib/site.ts` and the backend `src/services/plan.ts`. Change them together.
+- Keep the SSE field names in sync with the backend's `services/agent.ts`.

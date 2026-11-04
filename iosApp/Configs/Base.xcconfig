@@ -1,0 +1,11 @@
+// Shared build settings. `https:/$()/` keeps xcconfig from reading `//` as a comment.
+
+// OWNER: must match the App ID in the Apple Developer portal and APPLE_BUNDLE_ID in the backend.
+APP_BUNDLE_ID = com.neilb.synapcart
+APP_DISPLAY_NAME = SynapCart
+
+// StoreKit product ids of the auto-renewable subscription group (App Store Connect),
+// comma-separated; must match APPLE_PRODUCT_IDS in the backend's wrangler.jsonc.
+PREMIUM_PRODUCT_IDS = synapcart_premium_monthly,synapcart_premium_yearly
+PREMIUM_PRODUCT_MONTHLY = synapcart_premium_monthly
+PREMIUM_PRODUCT_YEARLY = synapcart_premium_yearly
