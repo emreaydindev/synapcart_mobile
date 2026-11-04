@@ -45,6 +45,8 @@
                 <data
                     android:scheme="synapcart"
                     android:host="reset-password" />
+                <!-- Opens the app (for example from the web portal after a password reset). -->
+                <data android:host="login" />
             </intent-filter>
         </activity>
 
