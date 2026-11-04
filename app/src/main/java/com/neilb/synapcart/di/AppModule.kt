@@ -1,26 +1,16 @@
 package com.neilb.synapcart.di
 
 import android.content.Context
-import com.google.gson.Gson
 import com.neilb.synapcart.data.billing.BillingRepository
 import com.neilb.synapcart.data.billing.UserPlanRepository
 import com.neilb.synapcart.data.push.PushRepository
-import com.neilb.synapcart.data.remote.BillingApiService
+import com.neilb.synapcart.data.remote.SynapCartApi
+import com.neilb.synapcart.shared.SynapCart
 import com.neilb.synapcart.domain.use_case.chat.CompareProductsUseCase
 import com.neilb.synapcart.domain.use_case.favorites.SetPriceAlertUseCase
 import com.neilb.synapcart.util.NotificationPermissionController
 import dagger.hilt.android.qualifiers.ApplicationContext
-import com.neilb.synapcart.BuildConfig
-import com.neilb.synapcart.data.remote.AuthApiService
-import com.neilb.synapcart.data.remote.FavoritesApiService
-import com.neilb.synapcart.data.remote.SynapCartApiService
-import com.neilb.synapcart.data.remote.UserApiService
-import com.neilb.synapcart.data.repository.AuthRepositoryImpl
 import com.neilb.synapcart.data.repository.ChatStreamRepository
-import com.neilb.synapcart.data.repository.ChatStreamRepositoryImpl
-import com.neilb.synapcart.data.repository.FavoritesRepositoryImpl
-import com.neilb.synapcart.data.repository.SynapCartRepositoryImpl
-import com.neilb.synapcart.data.repository.UserRepositoryImpl
 import com.neilb.synapcart.domain.repository.AuthRepository
 import com.neilb.synapcart.domain.repository.FavoritesRepository
 import com.neilb.synapcart.domain.repository.SynapCartRepository
@@ -52,7 +42,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.OkHttpClient
 import javax.inject.Singleton
 
 @Module
@@ -61,15 +50,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(
-        apiService: AuthApiService,
-        sessionManager: SessionManager,
-        favoritesRepository: FavoritesRepository,
-        planRepository: UserPlanRepository,
-        pushRepository: PushRepository
-    ): AuthRepository {
-        return AuthRepositoryImpl(apiService, sessionManager, favoritesRepository, planRepository, pushRepository)
-    }
+    fun provideAuthRepository(sdk: SynapCart): AuthRepository = sdk.auth
 
     @Provides
     @Singleton
@@ -84,9 +65,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideChatRepository(apiService: SynapCartApiService): SynapCartRepository {
-        return SynapCartRepositoryImpl(apiService)
-    }
+    fun provideChatRepository(sdk: SynapCart): SynapCartRepository = sdk.chat
 
     @Provides
     @Singleton
@@ -103,9 +82,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFavoritesRepository(apiService: FavoritesApiService, sessionManager: SessionManager): FavoritesRepository {
-        return FavoritesRepositoryImpl(apiService, sessionManager)
-    }
+    fun provideFavoritesRepository(sdk: SynapCart): FavoritesRepository = sdk.favorites
 
     @Provides
     @Singleton
@@ -121,24 +98,17 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideUserRepository(
-        apiService: UserApiService,
-        sessionManager: SessionManager,
-        favoritesRepository: FavoritesRepository,
-        planRepository: UserPlanRepository
-    ): UserRepository {
-        return UserRepositoryImpl(apiService, sessionManager, favoritesRepository, planRepository)
-    }
+    fun provideUserRepository(sdk: SynapCart): UserRepository = sdk.user
 
     @Provides
     @Singleton
-    fun provideUserPlanRepository(): UserPlanRepository = UserPlanRepository()
+    fun provideUserPlanRepository(sdk: SynapCart): UserPlanRepository = sdk.plan
 
     @Provides
     @Singleton
     fun provideBillingRepository(
         @ApplicationContext context: Context,
-        billingApi: BillingApiService,
+        billingApi: SynapCartApi,
         userRepository: UserRepository,
         planRepository: UserPlanRepository,
         sessionManager: SessionManager
@@ -148,7 +118,7 @@ object AppModule {
     @Singleton
     fun providePushRepository(
         @ApplicationContext context: Context,
-        userApi: UserApiService,
+        userApi: SynapCartApi,
         sessionManager: SessionManager
     ): PushRepository = PushRepository(context, userApi, sessionManager)
 
@@ -182,11 +152,5 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGson(): Gson = Gson()
-
-    @Provides
-    @Singleton
-    fun provideChatStreamRepository(okHttpClient: OkHttpClient, gson: Gson): ChatStreamRepository {
-        return ChatStreamRepositoryImpl(okHttpClient, gson, BuildConfig.BASE_URL)
-    }
+    fun provideChatStreamRepository(sdk: SynapCart): ChatStreamRepository = sdk.stream
 }

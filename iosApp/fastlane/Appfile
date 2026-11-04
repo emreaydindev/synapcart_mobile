@@ -1,0 +1,3 @@
+# OWNER: keep in sync with Configs/Base.xcconfig (APP_BUNDLE_ID).
+app_identifier("com.neilb.synapcart")
+team_id(ENV["TEAM_ID"]) if ENV["TEAM_ID"]

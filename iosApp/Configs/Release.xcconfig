@@ -1,0 +1,4 @@
+#include "Base.xcconfig"
+
+API_BASE_URL = https:/$()/api.synapcart.emreaydin.dev/
+WEB_URL = https:/$()/synapcart.emreaydin.dev/

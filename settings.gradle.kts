@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "SynapCart"
 include(":app")
+include(":shared")

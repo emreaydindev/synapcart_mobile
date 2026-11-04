@@ -2,104 +2,65 @@ package com.neilb.synapcart.di
 
 import android.content.Context
 import com.neilb.synapcart.BuildConfig
-import com.neilb.synapcart.data.remote.AuthApiService
-import com.neilb.synapcart.data.remote.BillingApiService
-import com.neilb.synapcart.data.remote.FavoritesApiService
-import com.neilb.synapcart.data.remote.SynapCartApiService
-import com.neilb.synapcart.data.remote.UserApiService
-import com.neilb.synapcart.data.remote.interceptor.AuthInterceptor
+import com.neilb.synapcart.data.push.PushRepository
+import com.neilb.synapcart.data.remote.SynapCartApi
+import com.neilb.synapcart.data.repository.PlatformHooks
+import com.neilb.synapcart.shared.SynapCart
+import com.neilb.synapcart.util.AppLocale
+import com.neilb.synapcart.util.SESSION_DATASTORE_FILE
 import com.neilb.synapcart.util.SessionEvents
 import com.neilb.synapcart.util.SessionManager
+import com.neilb.synapcart.util.createSessionDataStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import javax.inject.Provider
 import javax.inject.Singleton
 
+/**
+ * The shared KMP layer ([SynapCart]): Ktor API client, session DataStore and repositories.
+ * The DataStore file is the same one the pre-KMP app used, so users stay signed in.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideSessionManager(@ApplicationContext context: Context): SessionManager {
-        return SessionManager(context)
-    }
+    fun provideSynapCart(
+        @ApplicationContext context: Context,
+        pushRepository: Provider<PushRepository>
+    ): SynapCart {
+        val path = context.filesDir.resolve("datastore/$SESSION_DATASTORE_FILE").absolutePath
+        val hooks = object : PlatformHooks {
+            // Lazy: PushRepository itself depends on the API built here.
+            override suspend fun beforeSignOut() = pushRepository.get().unregister()
 
-    @Provides
-    @Singleton
-    fun provideSessionEvents(): SessionEvents = SessionEvents()
-
-    @Provides
-    @Singleton
-    fun provideAuthInterceptor(sessionManager: SessionManager, sessionEvents: SessionEvents): AuthInterceptor {
-        return AuthInterceptor(sessionManager, sessionEvents)
-    }
-
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
-        val builder = OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            // The agent (and Render cold starts) can take a while before the first byte.
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-        if (BuildConfig.DEBUG) {
-            // Debug builds only: never log request bodies (passwords) or tokens in release.
-            builder.addInterceptor(
-                HttpLoggingInterceptor().apply {
-                    level = HttpLoggingInterceptor.Level.BODY
-                    redactHeader("Authorization")
-                }
-            )
+            override suspend fun onProfileLoaded(language: String?) =
+                withContext(Dispatchers.Main) { AppLocale.apply(language) }
         }
-        return builder.build()
+        return SynapCart(
+            baseUrl = BuildConfig.BASE_URL,
+            dataStore = createSessionDataStore(path),
+            hooks = hooks,
+            // Debug builds only: request lines with Authorization redacted, never bodies.
+            logRequests = BuildConfig.DEBUG
+        )
     }
 
     @Provides
     @Singleton
-    fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
-        return Retrofit.Builder()
-            .baseUrl(BuildConfig.BASE_URL)
-            .addConverterFactory(GsonConverterFactory.create())
-            .client(okHttpClient)
-            .build()
-    }
+    fun provideSessionManager(sdk: SynapCart): SessionManager = sdk.session
 
     @Provides
     @Singleton
-    fun provideApiService(retrofit: Retrofit): SynapCartApiService {
-        return retrofit.create(SynapCartApiService::class.java)
-    }
+    fun provideSessionEvents(sdk: SynapCart): SessionEvents = sdk.sessionEvents
 
     @Provides
     @Singleton
-    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
-        return retrofit.create(AuthApiService::class.java)
-    }
-
-    @Provides
-    @Singleton
-    fun provideUserApiService(retrofit: Retrofit): UserApiService {
-        return retrofit.create(UserApiService::class.java)
-    }
-
-    @Provides
-    @Singleton
-    fun provideBillingApiService(retrofit: Retrofit): BillingApiService {
-        return retrofit.create(BillingApiService::class.java)
-    }
-
-    @Provides
-    @Singleton
-    fun provideFavoritesApiService(retrofit: Retrofit): FavoritesApiService {
-        return retrofit.create(FavoritesApiService::class.java)
-    }
+    fun provideApi(sdk: SynapCart): SynapCartApi = sdk.api
 }

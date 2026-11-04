@@ -176,7 +176,7 @@ fun SynapCartNavHost(
             route = Screen.ResetPassword.route,
             arguments = listOf(navArgument("token") { type = NavType.StringType; nullable = true }),
             deepLinks = listOf(
-                navDeepLink { uriPattern = "https://synapcart.app/reset-password?token={token}" },
+                navDeepLink { uriPattern = "https://synapcart.emreaydin.dev/reset-password?token={token}" },
                 navDeepLink { uriPattern = "synapcart://reset-password?token={token}" }
             )
         ) {

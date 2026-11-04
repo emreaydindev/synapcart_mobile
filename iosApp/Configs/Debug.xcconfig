@@ -1,0 +1,7 @@
+#include "Base.xcconfig"
+
+// Local backend (`npm run dev -- --port 8001` in synapcart_backend). The simulator shares the
+// Mac's network, so localhost works; for a device use your Mac's LAN IP.
+API_BASE_URL = http:/$()/localhost:8001/
+WEB_URL = https:/$()/staging.synapcart.emreaydin.dev/
+APP_DISPLAY_NAME = SynapCart Dev

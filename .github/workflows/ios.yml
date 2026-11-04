@@ -1,0 +1,85 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["shared/**", "iosApp/**", "gradle/**", "*.gradle.kts", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "fastlane lane to run after the build (beta_staging / beta)"
+        required: false
+        default: ""
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Shared module tests (JVM)
+        run: ./gradlew :shared:testAndroidHostTest
+      - name: Shared module tests (iOS simulator)
+        run: ./gradlew :shared:iosSimulatorArm64Test
+      - name: Upload shared test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-test-reports
+          path: |
+            shared/build/reports/tests/
+            shared/build/test-results/
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: iosApp
+        run: xcodegen generate
+      - name: Build and test (simulator, unsigned)
+        working-directory: iosApp
+        run: |
+          xcodebuild test \
+            -project SynapCart.xcodeproj \
+            -scheme SynapCart \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO
+
+  testflight:
+    needs: build-and-test
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.lane != ''
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: app-store
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: iosApp
+      - run: brew install xcodegen
+      - name: Firebase config
+        if: env.GOOGLE_SERVICE_INFO_PLIST != ''
+        run: echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > iosApp/SynapCart/Resources/GoogleService-Info.plist
+      - name: fastlane ${{ github.event.inputs.lane }}
+        working-directory: iosApp
+        run: bundle exec fastlane ${{ github.event.inputs.lane }}

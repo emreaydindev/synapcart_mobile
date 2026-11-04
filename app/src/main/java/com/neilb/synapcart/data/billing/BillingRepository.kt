@@ -20,7 +20,7 @@ import com.android.billingclient.api.queryPurchasesAsync
 import com.neilb.synapcart.BuildConfig
 import com.neilb.synapcart.R
 import com.neilb.synapcart.data.model.VerifyPurchaseRequest
-import com.neilb.synapcart.data.remote.BillingApiService
+import com.neilb.synapcart.data.remote.SynapCartApi
 import com.neilb.synapcart.data.remote.safeApiCall
 import com.neilb.synapcart.data.remote.toUiText
 import com.neilb.synapcart.domain.repository.UserRepository
@@ -88,7 +88,7 @@ fun savingPercent(monthlyMicros: Long?, yearlyMicros: Long?): Int? {
  */
 class BillingRepository(
     context: Context,
-    private val billingApi: BillingApiService,
+    private val billingApi: SynapCartApi,
     private val userRepository: UserRepository,
     private val planRepository: UserPlanRepository,
     private val sessionManager: SessionManager

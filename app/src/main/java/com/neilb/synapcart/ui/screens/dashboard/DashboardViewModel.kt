@@ -141,9 +141,9 @@ class DashboardViewModel @Inject constructor(
             // globally (session cleared, user sent to login).
             userUseCases.getUser().onSuccess { profile ->
                 profile.fullName?.takeIf { it.isNotBlank() }?.let { _userName.value = it }
-                _quota.value = if (!profile.isPremium && profile.usageToday != null && profile.dailyLimit != null) {
-                    QuotaState(profile.usageToday, profile.dailyLimit)
-                } else null
+                val used = profile.usageToday
+                val limit = profile.dailyLimit
+                _quota.value = if (!profile.isPremium && used != null && limit != null) QuotaState(used, limit) else null
             }
         }
     }

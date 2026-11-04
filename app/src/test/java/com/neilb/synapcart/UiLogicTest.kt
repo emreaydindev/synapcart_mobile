@@ -4,6 +4,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import com.neilb.synapcart.data.remote.ApiException
 import com.neilb.synapcart.data.remote.toUiText
+import com.neilb.synapcart.data.remote.uiText
+import com.neilb.synapcart.util.ValidationReasons
+import kotlinx.datetime.TimeZone
 import com.neilb.synapcart.util.AppLocale
 import com.neilb.synapcart.util.SessionGroup
 import com.neilb.synapcart.util.UiText
@@ -38,14 +41,15 @@ class UiLogicTest {
 
     @Test
     fun sessionGroups_bucketByCalendarDay() {
-        val zone = ZoneOffset.UTC
-        val now = LocalDateTime.of(2026, 3, 10, 9, 0).toInstant(zone).toEpochMilli()
-        fun at(day: Int, hour: Int = 12) = LocalDateTime.of(2026, 3, day, hour, 0).toInstant(zone).toEpochMilli()
+        val zone = TimeZone.UTC
+        fun millis(y: Int, m: Int, d: Int, h: Int = 0) = LocalDateTime.of(y, m, d, h, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
+        val now = millis(2026, 3, 10, 9)
+        fun at(day: Int, hour: Int = 12) = millis(2026, 3, day, hour)
         assertEquals(SessionGroup.TODAY, sessionGroupOf(at(10, 0), now, zone))
         assertEquals(SessionGroup.YESTERDAY, sessionGroupOf(at(9, 23), now, zone))
         assertEquals(SessionGroup.LAST_7_DAYS, sessionGroupOf(at(4), now, zone))
-        assertEquals(SessionGroup.LAST_30_DAYS, sessionGroupOf(LocalDateTime.of(2026, 2, 20, 0, 0).toInstant(zone).toEpochMilli(), now, zone))
-        assertEquals(SessionGroup.OLDER, sessionGroupOf(LocalDateTime.of(2025, 12, 1, 0, 0).toInstant(zone).toEpochMilli(), now, zone))
+        assertEquals(SessionGroup.LAST_30_DAYS, sessionGroupOf(millis(2026, 2, 20), now, zone))
+        assertEquals(SessionGroup.OLDER, sessionGroupOf(millis(2025, 12, 1), now, zone))
         assertEquals(SessionGroup.OLDER, sessionGroupOf(null, now, zone))
     }
 
@@ -55,7 +59,7 @@ class UiLogicTest {
         assertEquals(UiText.Res(R.string.error_unauthorized), ApiException.fromHttp(401, null).uiText)
         assertEquals(UiText.Res(R.string.error_quota), ApiException.fromHttp(402, "<html/>").uiText)
         assertEquals(UiText.Res(R.string.error_network), ApiException.Network().uiText)
-        assertEquals(UiText.Res(R.string.error_name_empty), ApiException.Validation(R.string.error_name_empty).uiText)
+        assertEquals(UiText.Res(R.string.error_name_empty), ApiException.Validation(ValidationReasons.NAME_EMPTY).uiText)
         assertEquals(UiText.Res(R.string.error_history_load), IllegalStateException().toUiText(R.string.error_history_load))
     }
 

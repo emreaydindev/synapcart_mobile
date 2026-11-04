@@ -1,0 +1,123 @@
+# XcodeGen spec for the SynapCart iOS app. Generate the Xcode project with:
+#   brew install xcodegen && cd iosApp && xcodegen generate && open SynapCart.xcodeproj
+# The .xcodeproj is generated (gitignored); edit this file instead.
+name: SynapCart
+options:
+  bundleIdPrefix: com.neilb
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: tr
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+configs:
+  Debug: debug
+  Staging: release
+  Release: release
+
+configFiles:
+  Debug: Configs/Debug.xcconfig
+  Staging: Configs/Staging.xcconfig
+  Release: Configs/Release.xcconfig
+
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 12.0.0
+
+settings:
+  base:
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    # OWNER: your Apple Developer Team ID (also used in the web's apple-app-site-association).
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+
+fileGroups:
+  - SynapCart/Resources/Configuration.storekit
+  - Configs
+
+targets:
+  SynapCart:
+    type: application
+    platform: iOS
+    sources:
+      - path: SynapCart
+        excludes:
+          - "**/*.md"
+          # Referenced by the Debug run scheme only; not shipped in the bundle.
+          - "**/*.storekit"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: SynapCart
+        INFOPLIST_FILE: SynapCart/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SynapCart/Resources/SynapCart.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        # The Kotlin framework built by the pre-build script below.
+        FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
+        OTHER_LDFLAGS: $(inherited) -framework Shared
+    preBuildScripts:
+      - name: Build Kotlin shared framework
+        basedOnDependencyAnalysis: false
+        shell: /bin/sh
+        script: |
+          # Compiles :shared for the current SDK/arch and copies Shared.framework to
+          # shared/build/xcode-frameworks/$CONFIGURATION/$SDK_NAME (needs a JDK 17+).
+          if [ "YES" = "$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED" ]; then
+            echo "Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED"
+            exit 0
+          fi
+          cd "$SRCROOT/.."
+          ./gradlew :shared:embedAndSignAppleFrameworkForXcode
+    dependencies:
+      - package: Firebase
+        product: FirebaseMessaging
+
+  SynapCartTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [SynapCartTests]
+    dependencies:
+      - target: SynapCart
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.neilb.synapcart.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/SynapCart.app/SynapCart
+        BUNDLE_LOADER: $(TEST_HOST)
+        FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
+
+schemes:
+  SynapCart:
+    build:
+      targets:
+        SynapCart: all
+        SynapCartTests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: SynapCart/Resources/Configuration.storekit
+    test:
+      config: Debug
+      targets: [SynapCartTests]
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  SynapCart Staging:
+    build:
+      targets:
+        SynapCart: all
+    run:
+      config: Staging
+    archive:
+      config: Staging
