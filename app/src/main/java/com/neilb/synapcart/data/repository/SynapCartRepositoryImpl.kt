@@ -1,6 +1,10 @@
 package com.neilb.synapcart.data.repository
 
 import com.neilb.synapcart.data.model.ChatMessageResponse
+import com.neilb.synapcart.data.model.CompareProduct
+import com.neilb.synapcart.data.model.CompareRequest
+import com.neilb.synapcart.data.model.CompareResponse
+import com.neilb.synapcart.data.model.ProductDTO
 import com.neilb.synapcart.data.model.SessionResponse
 import com.neilb.synapcart.data.model.SessionUpdateRequest
 import com.neilb.synapcart.data.remote.SynapCartApiService
@@ -33,6 +37,22 @@ class SynapCartRepositoryImpl(
 
     override suspend fun getMessages(sessionId: Int): Result<List<ChatMessage>> = safeApiCall {
         apiService.getMessages(sessionId).map { it.toDomain() }
+    }
+
+    override suspend fun compareProducts(products: List<ProductDTO>): Result<CompareResponse> = safeApiCall {
+        apiService.compareProducts(
+            CompareRequest(
+                products.map {
+                    CompareProduct(
+                        title = it.title?.takeIf { t -> t.isNotBlank() } ?: it.link.orEmpty(),
+                        price = it.price,
+                        source = it.source,
+                        link = it.link,
+                        thumbnail = it.thumbnail
+                    )
+                }
+            )
+        )
     }
 
     private fun ChatMessageResponse.toDomain() = ChatMessage(

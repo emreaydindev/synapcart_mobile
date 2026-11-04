@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">SynapCart</string>
     <string name="brand_tagline">Yapay zeka destekli alışveriş asistanın</string>
     <string name="cd_logo">SynapCart logosu</string>
@@ -68,7 +68,7 @@
     <string name="onboarding_prefs_note">Bunları istediğin zaman Profil\'den değiştirebilirsin.</string>
     <string name="onboarding_premium_title">Daha fazlası için Premium</string>
     <string name="onboarding_premium_subtitle">Ücretsiz plan günlük 5 mesaj içerir. Premium ile sınırları kaldır.</string>
-    <string name="onboarding_premium_note">Premium abonelikler yakında Google Play üzerinden açılacak.</string>
+    <string name="onboarding_premium_note">Premium\'a istediğin zaman Profil ekranından geçebilirsin.</string>
     <string name="onboarding_premium_later">Ücretsiz devam et</string>
     <string name="onboarding_start">Başlayalım</string>
     <string name="settings_language">Dil</string>
@@ -125,7 +125,6 @@
     <string name="product_compare">Karşılaştır</string>
     <string name="product_found_note">Bu ürünü SynapCart yapay zeka ajanı senin için buldu. Satın almak veya daha ayrıntılı incelemek için satıcının sayfasına gidebilirsin.</string>
     <string name="product_web_title">Satıcı sayfası</string>
-    <string name="price_alert_coming_soon">Fiyat alarmları çok yakında geliyor.</string>
     <string name="favorite_added">Favorilere eklendi.</string>
     <string name="favorite_removed">Favorilerden çıkarıldı.</string>
     <string name="favorites_title">Favorilerim</string>
@@ -137,7 +136,6 @@
     <string name="compare_store">Mağaza</string>
     <string name="compare_cheapest">En uygun</string>
     <string name="compare_details">Detaylar</string>
-    <string name="compare_ai_soon">Yapay zeka destekli artı/eksi analizi ve kazanan önerisi çok yakında burada.</string>
     <string name="paywall_title" translatable="false">SynapCart Premium</string>
     <string name="paywall_subtitle">Daha fazla sonuç, daha derin analiz ve fiyat alarmlarıyla akıllıca alışveriş yap.</string>
     <string name="paywall_row_messages">Günlük mesaj</string>
@@ -151,12 +149,9 @@
     <string name="paywall_included">Dahil</string>
     <string name="paywall_not_included">Dahil değil</string>
     <string name="paywall_monthly">Aylık</string>
-    <string name="paywall_monthly_caption">Her ay yenilenir</string>
     <string name="paywall_yearly">Yıllık</string>
-    <string name="paywall_yearly_caption">Her yıl yenilenir</string>
     <string name="paywall_best_value">En avantajlı</string>
-    <string name="paywall_coming_soon">Çok yakında</string>
-    <string name="paywall_legal">Abonelik, iptal edilmediği sürece seçilen dönemin sonunda otomatik olarak yenilenir. İstediğin zaman Google Play &gt; Abonelikler bölümünden iptal edebilirsin.</string>
+    <string name="paywall_legal">Ödeme, satın almayı onayladığında Google Play hesabından alınır. Abonelik, mevcut dönemin bitiminden en az 24 saat önce iptal edilmedikçe aynı fiyattan otomatik olarak yenilenir. Aboneliğini Google Play &gt; Abonelikler bölümünden yönetebilir veya iptal edebilirsin. İptal, dönemin sonunda geçerli olur; iadeler Google Play politikalarına tabidir.</string>
     <string name="profile_title">Profil</string>
     <string name="profile_section_settings">Tercihler</string>
     <string name="profile_section_account">Hesap</string>
@@ -213,4 +208,39 @@
         <item quantity="one">%1$d ürün seçildi</item>
         <item quantity="other">%1$d ürün seçildi</item>
     </plurals>
+    <!-- Phase 5: billing, price alerts, compare -->
+    <string name="paywall_price_month">%1$s / ay</string>
+    <string name="paywall_price_year">%1$s / yıl</string>
+    <!-- A percentage, not a count. -->
+    <string name="paywall_save" tools:ignore="PluralsCandidate">%%%1$d tasarruf</string>
+    <string name="paywall_free_trial">Ücretsiz deneme ile başla</string>
+    <string name="paywall_subscribe">Premium\'a geç</string>
+    <string name="paywall_loading">Planlar yükleniyor…</string>
+    <string name="paywall_unavailable">Google Play satın alma şu an kullanılamıyor. Play Store\'un güncel olduğundan emin olup tekrar dene.</string>
+    <string name="paywall_premium_active">Premium üyeliğin aktif</string>
+    <string name="paywall_premium_until">Premium üyeliğin aktif · %1$s tarihine kadar</string>
+    <string name="billing_error">Satın alma tamamlanamadı. Lütfen tekrar dene.</string>
+    <string name="billing_verify_failed">Satın alma doğrulanamadı. Uygulamayı yeniden açtığında otomatik olarak tekrar denenecek.</string>
+    <string name="billing_success">Premium\'a hoş geldin!</string>
+    <string name="billing_pending">Ödemen onay bekliyor. Tamamlanınca Premium açılacak.</string>
+    <string name="notification_channel_price_alerts">Fiyat alarmları</string>
+    <string name="notification_channel_price_alerts_desc">Favorin hedef fiyata düştüğünde haber verir.</string>
+    <string name="notification_price_drop_title">Fiyat düştü!</string>
+    <string name="price_alert_title">Fiyat alarmı</string>
+    <string name="price_alert_message">Fiyat bu tutara veya altına düşünce bildirim göndereceğiz. Fiyatlar her gün kontrol edilir.</string>
+    <string name="price_alert_target_label">Hedef fiyat (%1$s)</string>
+    <string name="price_alert_set">Alarmı kur</string>
+    <string name="price_alert_remove">Alarmı kaldır</string>
+    <string name="price_alert_saved">Fiyat alarmı kuruldu: %1$s</string>
+    <string name="price_alert_removed">Fiyat alarmı kaldırıldı.</string>
+    <string name="price_alert_invalid">Geçerli bir hedef fiyat gir.</string>
+    <string name="product_price_alert_on">Alarm: %1$s</string>
+    <string name="error_price_alert">Fiyat alarmı kaydedilemedi.</string>
+    <string name="compare_ai_title">Yapay zeka değerlendirmesi</string>
+    <string name="compare_pros">Artılar</string>
+    <string name="compare_cons">Eksiler</string>
+    <string name="compare_best">Önerilen</string>
+    <string name="compare_loading">Ürünler karşılaştırılıyor…</string>
+    <string name="error_compare">Karşılaştırma yapılamadı.</string>
+    <string name="chat_locked">Kilitli sohbet</string>
 </resources>

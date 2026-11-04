@@ -3,7 +3,10 @@ package com.neilb.synapcart.ui.screens.dashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.R
+import com.neilb.synapcart.data.billing.BillingRepository
 import com.neilb.synapcart.data.model.AgentStreamEvent
+import com.neilb.synapcart.data.push.PushRepository
+import com.neilb.synapcart.util.NotificationPermissionController
 import com.neilb.synapcart.data.remote.ApiException
 import com.neilb.synapcart.data.remote.toUiText
 import com.neilb.synapcart.util.UiText
@@ -27,6 +30,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.stateIn
@@ -38,10 +42,12 @@ data class ChatSessionItem(
     val id: Int,
     /** Null until the server names the chat; the UI shows a placeholder. */
     val title: String?,
-    val createdAt: Long?
+    val createdAt: Long?,
+    /** Free plan: past the 10 newest chats; opening it shows the paywall. */
+    val locked: Boolean = false
 )
 
-/** Free-plan usage, when the backend reports it (premium backend, roadmap Phase 2). */
+/** Free-plan usage from `/user/me` (`usage_today` / `daily_limit`). */
 data class QuotaState(val used: Int, val limit: Int)
 
 /** What the agent is doing for the in-flight message. */
@@ -55,7 +61,10 @@ class DashboardViewModel @Inject constructor(
     private val snackbarController: SnackbarController,
     private val chatStreamRepository: ChatStreamRepository,
     private val userUseCases: UserUseCases,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val billingRepository: BillingRepository,
+    private val pushRepository: PushRepository,
+    private val notificationPermission: NotificationPermissionController
 ) : ViewModel() {
 
     private val _userName = MutableStateFlow("")
@@ -111,6 +120,18 @@ class DashboardViewModel @Inject constructor(
         loadUserData()
         fetchChatHistory()
         viewModelScope.launch { favoritesUseCases.refresh() }
+        // Once per process: re-verify Play subscriptions and register the FCM token.
+        viewModelScope.launch {
+            billingRepository.restorePurchases()
+            pushRepository.syncToken()
+        }
+        // Plan changed (purchase, expiry): quota banner and locked chats change with it.
+        viewModelScope.launch {
+            isPremium.drop(1).collect {
+                loadUserData()
+                fetchChatHistory()
+            }
+        }
     }
 
     private fun loadUserData() {
@@ -141,6 +162,10 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun loadSession(session: ChatSessionItem) {
+        if (session.locked) {
+            _paywallEvents.trySend(Unit)
+            return
+        }
         if (session.id == _currentSessionId.value) return
         cancelInFlight()
         _currentSessionId.value = session.id
@@ -151,7 +176,7 @@ class DashboardViewModel @Inject constructor(
             _isLoadingMessages.value = true
             chatUseCases.getMessages(session.id).fold(
                 onSuccess = { _messages.value = it },
-                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_messages_load)) }
+                onFailure = { e -> onSendFailure(e, R.string.error_messages_load) }
             )
             _isLoadingMessages.value = false
         }
@@ -226,6 +251,7 @@ class DashboardViewModel @Inject constructor(
             favoritesUseCases.toggle(product).fold(
                 onSuccess = { added ->
                     snackbarController.showSnackbar(if (added) R.string.favorite_added else R.string.favorite_removed)
+                    if (added) notificationPermission.maybeRequest()
                 },
                 onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_favorite_update)) }
             )
@@ -260,8 +286,9 @@ class DashboardViewModel @Inject constructor(
 
     private suspend fun onSendFailure(e: Throwable, fallback: Int) {
         if (e is ApiException.QuotaExceeded) {
-            _quota.update { q -> q?.copy(used = q.limit) }
-            _paywallEvents.send(Unit)
+            if (e.code == ApiException.CODE_QUOTA) _quota.update { q -> q?.copy(used = q.limit) }
+            // Premium users only hit the soft cap; the paywall has nothing more to sell them.
+            if (!isPremium.value) _paywallEvents.send(Unit)
         }
         snackbarController.showSnackbar(e.toUiText(fallback))
     }
@@ -293,6 +320,7 @@ class DashboardViewModel @Inject constructor(
     private fun SessionResponse.toItem() = ChatSessionItem(
         id = id,
         title = title?.takeIf { it.isNotBlank() },
-        createdAt = parseServerTimestamp(createdAt)
+        createdAt = parseServerTimestamp(createdAt),
+        locked = locked == true
     )
 }

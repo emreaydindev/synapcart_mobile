@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AddComment
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -69,12 +70,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -523,6 +526,7 @@ private fun ChatDrawer(
                     val session = items[index]
                     SessionRow(
                         title = session.title ?: untitled,
+                        locked = session.locked,
                         selected = session.id == currentSessionId,
                         onClick = { onSelect(session) },
                         onRename = { renameTarget = session },
@@ -551,15 +555,31 @@ private fun SessionGroup.label() = when (this) {
 @Composable
 private fun SessionRow(
     title: String,
+    locked: Boolean,
     selected: Boolean,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    val lockedLabel = stringResource(R.string.chat_locked)
     NavigationDrawerItem(
-        label = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium) },
-        icon = { Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(Dimens.IconS)) },
+        label = {
+            Text(
+                title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (locked) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified
+            )
+        },
+        icon = {
+            if (locked) {
+                Icon(Icons.Outlined.Lock, contentDescription = null, tint = SynapColors.PremiumGold, modifier = Modifier.size(Dimens.IconS))
+            } else {
+                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(Dimens.IconS))
+            }
+        },
         selected = selected,
         onClick = onClick,
         badge = {
@@ -585,7 +605,10 @@ private fun SessionRow(
             selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             unselectedContainerColor = androidx.compose.ui.graphics.Color.Transparent
         ),
-        modifier = Modifier.padding(horizontal = Dimens.SpaceM).height(Dimens.TouchTarget + 4.dp)
+        modifier = Modifier
+            .padding(horizontal = Dimens.SpaceM)
+            .height(Dimens.TouchTarget + 4.dp)
+            .semantics { if (locked) stateDescription = lockedLabel }
     )
 }
 

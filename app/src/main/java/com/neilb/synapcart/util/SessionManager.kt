@@ -21,6 +21,7 @@ class SessionManager(private val context: Context) {
         private val LANGUAGE_KEY = stringPreferencesKey("language")
         private val PLAN_KEY = stringPreferencesKey("plan")
         private val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
+        private val NOTIFICATION_PROMPT_KEY = booleanPreferencesKey("notification_prompt_shown")
 
         const val DEFAULT_CURRENCY = "TRY"
         const val DEFAULT_LANGUAGE = "tr"
@@ -69,6 +70,15 @@ class SessionManager(private val context: Context) {
         context.dataStore.edit { preferences ->
             if (plan.isNullOrBlank()) preferences.remove(PLAN_KEY) else preferences[PLAN_KEY] = plan
         }
+    }
+
+    /** Device-level: the notification permission prompt was already shown once. */
+    val notificationPromptShown: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[NOTIFICATION_PROMPT_KEY] ?: false
+    }
+
+    suspend fun setNotificationPromptShown() {
+        context.dataStore.edit { preferences -> preferences[NOTIFICATION_PROMPT_KEY] = true }
     }
 
     suspend fun saveUserName(userName: String) {

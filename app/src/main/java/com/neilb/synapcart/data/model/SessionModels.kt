@@ -6,7 +6,9 @@ data class SessionResponse(
     @SerializedName("id") val id: Int,
     @SerializedName("title") val title: String?,
     @SerializedName("created_at") val createdAt: String?,
-    @SerializedName("user_id") val userId: String
+    @SerializedName("user_id") val userId: String,
+    /** Free plan: older than the 10 newest sessions; opening it returns 402 `history_locked`. */
+    @SerializedName("locked") val locked: Boolean? = null
 )
 
 data class SessionUpdateRequest(

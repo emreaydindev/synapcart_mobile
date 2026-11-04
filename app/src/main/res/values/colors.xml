@@ -3,4 +3,5 @@
     <!-- Mirrors ui/theme/Color.kt for XML (window and splash themes). -->
     <color name="synap_bg">#060B14</color>
     <color name="synap_primary">#2DD4B4</color>
+    <color name="notification_accent">#2DD4B4</color>
 </resources>

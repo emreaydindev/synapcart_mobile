@@ -14,7 +14,7 @@ data class UserProfile(
     @SerializedName("email") val email: String,
     @SerializedName("language") val language: String?,
     @SerializedName("currency") val currency: String?,
-    // Plan fields arrive with the premium backend (roadmap Phase 2); null until then.
+    // Effective plan ("free" | "premium") and today's agent usage.
     @SerializedName("plan") val plan: String? = null,
     @SerializedName("plan_expires_at") val planExpiresAt: String? = null,
     @SerializedName("usage_today") val usageToday: Int? = null,

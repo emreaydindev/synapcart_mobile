@@ -37,6 +37,8 @@ import com.neilb.synapcart.ui.screens.profile.ProfileViewModel
 import com.neilb.synapcart.ui.screens.compare.CompareScreen
 import com.neilb.synapcart.ui.screens.compare.CompareViewModel
 import com.neilb.synapcart.ui.screens.paywall.PaywallScreen
+import com.neilb.synapcart.ui.screens.paywall.PaywallViewModel
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun SynapCartNavHost(
@@ -44,7 +46,11 @@ fun SynapCartNavHost(
     sessionEvents: SessionEvents,
     selectedProductStore: SelectedProductStore,
     onStartDestinationResolved: () -> Unit = {},
-    startDestination: String = Screen.Splash.route
+    startDestination: String = Screen.Splash.route,
+    /** A product link from a tapped price alert; opened once the user is signed in. */
+    pendingProductLink: String? = null,
+    resolveProduct: suspend (String) -> ProductDTO = { ProductDTO(null, null, null, it, null) },
+    onPendingProductHandled: () -> Unit = {}
 ) {
     // The token was rejected (expired or revoked): the session is already cleared, go to login.
     LaunchedEffect(sessionEvents) {
@@ -75,6 +81,19 @@ fun SynapCartNavHost(
 
     fun openPaywall() {
         navController.navigate(Screen.Paywall.route) { launchSingleTop = true }
+    }
+
+    // Price-alert tap: wait until the signed-in part of the app is showing, then open the product.
+    LaunchedEffect(pendingProductLink) {
+        val link = pendingProductLink ?: return@LaunchedEffect
+        navController.currentBackStackEntryFlow.first { entry ->
+            entry.destination.route !in setOf(
+                Screen.Splash.route, Screen.Login.route, Screen.Register.route,
+                Screen.ForgotPassword.route, Screen.ResetPassword.route, Screen.Onboarding.route
+            )
+        }
+        openProduct(resolveProduct(link))
+        onPendingProductHandled()
     }
 
     NavHost(
@@ -246,12 +265,14 @@ fun SynapCartNavHost(
             CompareScreen(
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onOpenProduct = { product -> openProduct(product) }
+                onOpenProduct = { product -> openProduct(product) },
+                onOpenPaywall = ::openPaywall
             )
         }
 
         composable(route = Screen.Paywall.route) {
-            PaywallScreen(onNavigateBack = { navController.popBackStack() })
+            val viewModel: PaywallViewModel = hiltViewModel()
+            PaywallScreen(viewModel = viewModel, onNavigateBack = { navController.popBackStack() })
         }
 
         composable(

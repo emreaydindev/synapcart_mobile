@@ -40,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neilb.synapcart.BuildConfig
 import com.neilb.synapcart.R
+import com.neilb.synapcart.data.billing.BillingRepository
 import com.neilb.synapcart.ui.components.ChipGroup
 import com.neilb.synapcart.ui.components.ConfirmDialog
 import com.neilb.synapcart.ui.components.PlanBadge
@@ -68,9 +70,6 @@ import com.neilb.synapcart.util.parseServerTimestamp
 import java.text.DateFormat
 import java.util.Date
 
-/** Play's subscription management page for this app. */
-private const val MANAGE_SUBSCRIPTION_URL =
-    "https://play.google.com/store/account/subscriptions?package=" + BuildConfig.APPLICATION_ID
 
 @Composable
 fun ProfileScreen(
@@ -92,6 +91,7 @@ fun ProfileScreen(
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var showPasswordDialog by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     LaunchedEffect(isAccountDeleted) {
         if (isAccountDeleted) onAccountDeleted()
@@ -151,7 +151,7 @@ fun ProfileScreen(
                     isPremium = isPremium,
                     expiresAt = planExpiresAt,
                     onUpgrade = onOpenPaywall,
-                    onManage = { uriHandler.openUri(MANAGE_SUBSCRIPTION_URL) }
+                    onManage = { uriHandler.openUri(BillingRepository.manageSubscriptionUrl(context.packageName)) }
                 )
 
                 SectionHeader(stringResource(R.string.profile_section_settings), Modifier.padding(top = Dimens.SpaceS))

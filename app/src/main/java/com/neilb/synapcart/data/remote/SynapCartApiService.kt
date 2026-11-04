@@ -1,6 +1,8 @@
 package com.neilb.synapcart.data.remote
 
 import com.neilb.synapcart.data.model.ChatMessageResponse
+import com.neilb.synapcart.data.model.CompareRequest
+import com.neilb.synapcart.data.model.CompareResponse
 import com.neilb.synapcart.data.model.SessionResponse
 import com.neilb.synapcart.data.model.SessionUpdateRequest
 import retrofit2.Response
@@ -28,6 +30,10 @@ interface SynapCartApiService {
 
     @DELETE("api/v1/chat/sessions/{session_id}")
     suspend fun deleteSession(@Path("session_id") sessionId: Int): Response<Unit>
+
+    /** AI comparison of 2–4 products. Premium only (402 `premium_required` otherwise). */
+    @POST("api/v1/chat/compare")
+    suspend fun compareProducts(@Body request: CompareRequest): CompareResponse
 
     @GET("api/v1/chat/agent/{session_id}/messages")
     suspend fun getMessages(@Path("session_id") sessionId: Int): List<ChatMessageResponse>

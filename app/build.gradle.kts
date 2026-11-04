@@ -7,6 +7,12 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Firebase (FCM price alerts) needs app/google-services.json from the Firebase console.
+// Without it the plugin is skipped and the app runs with push notifications disabled.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.google.services.get().pluginId)
+}
+
 android {
     namespace = "com.neilb.synapcart"
     compileSdk {
@@ -26,6 +32,11 @@ android {
 
         // Public web pages (privacy policy, terms, support) linked from the app.
         buildConfigField("String", "WEB_URL", "\"https://synapcart-web.vercel.app/\"")
+
+        // Play Billing. OWNER: must match the Play Console subscription and its base plans.
+        buildConfigField("String", "PREMIUM_PRODUCT_ID", "\"synapcart_premium\"")
+        buildConfigField("String", "PREMIUM_PLAN_MONTHLY", "\"monthly\"")
+        buildConfigField("String", "PREMIUM_PLAN_YEARLY", "\"yearly\"")
     }
 
     // Release signing: create `keystore.properties` in the project root (gitignored) with
@@ -97,6 +108,11 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.converter.gson)
     implementation(libs.logging.interceptor)
+
+    // Play Billing and Firebase Cloud Messaging
+    implementation(libs.billing.ktx)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     // Image Loading - Coil
     implementation(libs.coil.compose)

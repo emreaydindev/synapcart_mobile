@@ -129,7 +129,8 @@ fun FavoritesScreen(
                                 if (selecting) viewModel.toggleSelected(item.id) else onOpenProduct(item, favorites)
                             },
                             onToggleFavorite = { viewModel.removeFavorite(item) },
-                            selected = isSelected
+                            selected = isSelected,
+                            hasAlert = item.targetPrice != null
                         )
                     }
                 }

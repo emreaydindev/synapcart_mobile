@@ -1,6 +1,15 @@
 package com.neilb.synapcart.di
 
+import android.content.Context
 import com.google.gson.Gson
+import com.neilb.synapcart.data.billing.BillingRepository
+import com.neilb.synapcart.data.billing.UserPlanRepository
+import com.neilb.synapcart.data.push.PushRepository
+import com.neilb.synapcart.data.remote.BillingApiService
+import com.neilb.synapcart.domain.use_case.chat.CompareProductsUseCase
+import com.neilb.synapcart.domain.use_case.favorites.SetPriceAlertUseCase
+import com.neilb.synapcart.util.NotificationPermissionController
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.neilb.synapcart.BuildConfig
 import com.neilb.synapcart.data.remote.AuthApiService
 import com.neilb.synapcart.data.remote.FavoritesApiService
@@ -55,9 +64,11 @@ object AppModule {
     fun provideAuthRepository(
         apiService: AuthApiService,
         sessionManager: SessionManager,
-        favoritesRepository: FavoritesRepository
+        favoritesRepository: FavoritesRepository,
+        planRepository: UserPlanRepository,
+        pushRepository: PushRepository
     ): AuthRepository {
-        return AuthRepositoryImpl(apiService, sessionManager, favoritesRepository)
+        return AuthRepositoryImpl(apiService, sessionManager, favoritesRepository, planRepository, pushRepository)
     }
 
     @Provides
@@ -85,7 +96,8 @@ object AppModule {
             createSession = CreateSessionUseCase(repository),
             renameSession = RenameSessionUseCase(repository),
             deleteSession = DeleteSessionUseCase(repository),
-            getMessages = GetMessagesUseCase(repository)
+            getMessages = GetMessagesUseCase(repository),
+            compareProducts = CompareProductsUseCase(repository)
         )
     }
 
@@ -102,6 +114,7 @@ object AppModule {
             refresh = RefreshFavoritesUseCase(repository),
             toggle = ToggleFavoriteUseCase(repository),
             remove = RemoveFavoriteUseCase(repository),
+            setPriceAlert = SetPriceAlertUseCase(repository),
             repository = repository
         )
     }
@@ -111,10 +124,40 @@ object AppModule {
     fun provideUserRepository(
         apiService: UserApiService,
         sessionManager: SessionManager,
-        favoritesRepository: FavoritesRepository
+        favoritesRepository: FavoritesRepository,
+        planRepository: UserPlanRepository
     ): UserRepository {
-        return UserRepositoryImpl(apiService, sessionManager, favoritesRepository)
+        return UserRepositoryImpl(apiService, sessionManager, favoritesRepository, planRepository)
     }
+
+    @Provides
+    @Singleton
+    fun provideUserPlanRepository(): UserPlanRepository = UserPlanRepository()
+
+    @Provides
+    @Singleton
+    fun provideBillingRepository(
+        @ApplicationContext context: Context,
+        billingApi: BillingApiService,
+        userRepository: UserRepository,
+        planRepository: UserPlanRepository,
+        sessionManager: SessionManager
+    ): BillingRepository = BillingRepository(context, billingApi, userRepository, planRepository, sessionManager)
+
+    @Provides
+    @Singleton
+    fun providePushRepository(
+        @ApplicationContext context: Context,
+        userApi: UserApiService,
+        sessionManager: SessionManager
+    ): PushRepository = PushRepository(context, userApi, sessionManager)
+
+    @Provides
+    @Singleton
+    fun provideNotificationPermissionController(
+        @ApplicationContext context: Context,
+        sessionManager: SessionManager
+    ): NotificationPermissionController = NotificationPermissionController(context, sessionManager)
 
     @Provides
     @Singleton

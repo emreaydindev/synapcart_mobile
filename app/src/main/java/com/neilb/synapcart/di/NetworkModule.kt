@@ -3,6 +3,7 @@ package com.neilb.synapcart.di
 import android.content.Context
 import com.neilb.synapcart.BuildConfig
 import com.neilb.synapcart.data.remote.AuthApiService
+import com.neilb.synapcart.data.remote.BillingApiService
 import com.neilb.synapcart.data.remote.FavoritesApiService
 import com.neilb.synapcart.data.remote.SynapCartApiService
 import com.neilb.synapcart.data.remote.UserApiService
@@ -88,6 +89,12 @@ object NetworkModule {
     @Singleton
     fun provideUserApiService(retrofit: Retrofit): UserApiService {
         return retrofit.create(UserApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideBillingApiService(retrofit: Retrofit): BillingApiService {
+        return retrofit.create(BillingApiService::class.java)
     }
 
     @Provides

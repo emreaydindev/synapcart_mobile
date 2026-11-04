@@ -1,6 +1,8 @@
 package com.neilb.synapcart.data.repository
 
+import com.neilb.synapcart.data.billing.UserPlanRepository
 import com.neilb.synapcart.data.model.ForgotPasswordRequest
+import com.neilb.synapcart.data.push.PushRepository
 import com.neilb.synapcart.data.model.LoginRequest
 import com.neilb.synapcart.data.model.RegisterRequest
 import com.neilb.synapcart.data.model.ResetPasswordRequest
@@ -13,12 +15,15 @@ import com.neilb.synapcart.util.SessionManager
 class AuthRepositoryImpl(
     private val apiService: AuthApiService,
     private val sessionManager: SessionManager,
-    private val favoritesRepository: FavoritesRepository
+    private val favoritesRepository: FavoritesRepository,
+    private val planRepository: UserPlanRepository,
+    private val pushRepository: PushRepository
 ) : AuthRepository {
 
     override suspend fun login(email: String, password: String): Result<Unit> = safeApiCall {
         val response = apiService.login(LoginRequest(email.trim(), password))
         favoritesRepository.clear()
+        planRepository.clear()
         sessionManager.saveAuthToken(response.accessToken, response.userName)
     }
 
@@ -41,7 +46,10 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun logout() {
+        // While the token is still valid, so this device stops getting the user's alerts.
+        pushRepository.unregister()
         favoritesRepository.clear()
+        planRepository.clear()
         sessionManager.clearSession()
     }
 }

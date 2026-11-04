@@ -1,5 +1,6 @@
 package com.neilb.synapcart.data.repository
 
+import com.neilb.synapcart.data.billing.UserPlanRepository
 import com.neilb.synapcart.data.model.AccountDeleteRequest
 import com.neilb.synapcart.data.model.PasswordChangeRequest
 import com.neilb.synapcart.data.model.UserProfile
@@ -17,7 +18,8 @@ import kotlinx.coroutines.withContext
 class UserRepositoryImpl(
     private val apiService: UserApiService,
     private val sessionManager: SessionManager,
-    private val favoritesRepository: FavoritesRepository
+    private val favoritesRepository: FavoritesRepository,
+    private val planRepository: UserPlanRepository
 ) : UserRepository {
 
     override suspend fun getUserProfile(): Result<UserProfile> =
@@ -37,6 +39,7 @@ class UserRepositoryImpl(
     override suspend fun deleteAccount(password: String?): Result<Unit> = safeApiCall {
         apiService.deleteAccount(AccountDeleteRequest(password?.takeIf { it.isNotEmpty() })).requireSuccess()
         favoritesRepository.clear()
+        planRepository.clear()
         sessionManager.clearSession()
         sessionManager.saveOnboardingCompleted(false)
     }
@@ -45,6 +48,7 @@ class UserRepositoryImpl(
         profile.fullName?.takeIf { it.isNotBlank() }?.let { sessionManager.saveUserName(it) }
         sessionManager.savePreferences(profile.language, profile.currency)
         sessionManager.savePlan(profile.plan)
+        planRepository.update(profile)
         // The profile language drives the UI language (also on a new device after login).
         withContext(Dispatchers.Main) { AppLocale.apply(profile.language) }
     }

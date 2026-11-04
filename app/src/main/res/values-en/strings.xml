@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="brand_tagline">Your AI shopping assistant</string>
     <string name="cd_logo">SynapCart logo</string>
     <string name="cd_back">Back</string>
@@ -67,7 +67,7 @@
     <string name="onboarding_prefs_note">You can change these any time in Profile.</string>
     <string name="onboarding_premium_title">Do more with Premium</string>
     <string name="onboarding_premium_subtitle">The free plan includes 5 messages a day. Premium lifts the limits.</string>
-    <string name="onboarding_premium_note">Premium subscriptions are coming soon on Google Play.</string>
+    <string name="onboarding_premium_note">You can upgrade to Premium any time from your Profile.</string>
     <string name="onboarding_premium_later">Continue for free</string>
     <string name="onboarding_start">Let\'s go</string>
     <string name="settings_language">Language</string>
@@ -120,7 +120,6 @@
     <string name="product_compare">Compare</string>
     <string name="product_found_note">The SynapCart AI agent found this product for you. Open the store\'s page to buy it or see more details.</string>
     <string name="product_web_title">Store page</string>
-    <string name="price_alert_coming_soon">Price alerts are coming very soon.</string>
     <string name="favorite_added">Added to favorites.</string>
     <string name="favorite_removed">Removed from favorites.</string>
     <string name="favorites_title">My favorites</string>
@@ -132,7 +131,6 @@
     <string name="compare_store">Store</string>
     <string name="compare_cheapest">Best price</string>
     <string name="compare_details">Details</string>
-    <string name="compare_ai_soon">AI pros and cons and a recommended winner are coming here very soon.</string>
     <string name="paywall_subtitle">Shop smarter with more results, deeper analysis and price alerts.</string>
     <string name="paywall_row_messages">Messages per day</string>
     <string name="paywall_row_products">Products per search</string>
@@ -145,12 +143,9 @@
     <string name="paywall_included">Included</string>
     <string name="paywall_not_included">Not included</string>
     <string name="paywall_monthly">Monthly</string>
-    <string name="paywall_monthly_caption">Renews every month</string>
     <string name="paywall_yearly">Yearly</string>
-    <string name="paywall_yearly_caption">Renews every year</string>
     <string name="paywall_best_value">Best value</string>
-    <string name="paywall_coming_soon">Coming soon</string>
-    <string name="paywall_legal">The subscription renews automatically at the end of each period unless cancelled. You can cancel any time in Google Play &gt; Subscriptions.</string>
+    <string name="paywall_legal">Payment is charged to your Google Play account when you confirm the purchase. The subscription renews automatically at the same price unless cancelled at least 24 hours before the end of the current period. You can manage or cancel it in Google Play &gt; Subscriptions. Cancellation takes effect at the end of the period; refunds follow Google Play\'s policies.</string>
     <string name="profile_title">Profile</string>
     <string name="profile_section_settings">Preferences</string>
     <string name="profile_section_account">Account</string>
@@ -206,4 +201,39 @@
         <item quantity="one">%1$d product selected</item>
         <item quantity="other">%1$d products selected</item>
     </plurals>
+    <!-- Phase 5: billing, price alerts, compare -->
+    <string name="paywall_price_month">%1$s / month</string>
+    <string name="paywall_price_year">%1$s / year</string>
+    <!-- A percentage, not a count. -->
+    <string name="paywall_save" tools:ignore="PluralsCandidate">Save %1$d%%</string>
+    <string name="paywall_free_trial">Start with a free trial</string>
+    <string name="paywall_subscribe">Go Premium</string>
+    <string name="paywall_loading">Loading plans…</string>
+    <string name="paywall_unavailable">Google Play purchases aren\'t available right now. Make sure the Play Store is up to date and try again.</string>
+    <string name="paywall_premium_active">Your Premium membership is active</string>
+    <string name="paywall_premium_until">Your Premium membership is active · until %1$s</string>
+    <string name="billing_error">The purchase couldn\'t be completed. Please try again.</string>
+    <string name="billing_verify_failed">The purchase couldn\'t be verified. It will be retried automatically next time you open the app.</string>
+    <string name="billing_success">Welcome to Premium!</string>
+    <string name="billing_pending">Your payment is pending. Premium starts once it completes.</string>
+    <string name="notification_channel_price_alerts">Price alerts</string>
+    <string name="notification_channel_price_alerts_desc">Tells you when a favorite drops to your target price.</string>
+    <string name="notification_price_drop_title">Price drop!</string>
+    <string name="price_alert_title">Price alert</string>
+    <string name="price_alert_message">We\'ll notify you when the price drops to this amount or lower. Prices are checked daily.</string>
+    <string name="price_alert_target_label">Target price (%1$s)</string>
+    <string name="price_alert_set">Set alert</string>
+    <string name="price_alert_remove">Remove alert</string>
+    <string name="price_alert_saved">Price alert set: %1$s</string>
+    <string name="price_alert_removed">Price alert removed.</string>
+    <string name="price_alert_invalid">Enter a valid target price.</string>
+    <string name="product_price_alert_on">Alert: %1$s</string>
+    <string name="error_price_alert">The price alert couldn\'t be saved.</string>
+    <string name="compare_ai_title">AI verdict</string>
+    <string name="compare_pros">Pros</string>
+    <string name="compare_cons">Cons</string>
+    <string name="compare_best">Recommended</string>
+    <string name="compare_loading">Comparing products…</string>
+    <string name="error_compare">The comparison couldn\'t be made.</string>
+    <string name="chat_locked">Locked chat</string>
 </resources>

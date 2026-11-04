@@ -3,12 +3,16 @@ package com.neilb.synapcart.ui.screens.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.R
+import com.neilb.synapcart.data.billing.UserPlanRepository
 import com.neilb.synapcart.data.remote.toUiText
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
 import com.neilb.synapcart.util.AppLocale
 import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -17,7 +21,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val userUseCases: UserUseCases,
-    private val snackbarController: SnackbarController
+    private val snackbarController: SnackbarController,
+    planRepository: UserPlanRepository
 ) : ViewModel() {
 
     private val _fullName = MutableStateFlow("")
@@ -32,12 +37,15 @@ class ProfileViewModel @Inject constructor(
     private val _currency = MutableStateFlow("TRY")
     val currency: StateFlow<String> = _currency.asStateFlow()
 
-    private val _isPremium = MutableStateFlow(false)
-    val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+    /** Follows purchases made on the paywall while this screen is in the back stack. */
+    val isPremium: StateFlow<Boolean> = planRepository.state
+        .map { it.isPremium }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /** Raw server timestamp of the premium expiry, if any. */
-    private val _planExpiresAt = MutableStateFlow<String?>(null)
-    val planExpiresAt: StateFlow<String?> = _planExpiresAt.asStateFlow()
+    val planExpiresAt: StateFlow<String?> = planRepository.state
+        .map { it.expiresAt }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -62,8 +70,6 @@ class ProfileViewModel @Inject constructor(
                     _email.value = profile.email
                     _language.value = AppLocale.normalize(profile.language ?: AppLocale.current())
                     _currency.value = profile.currency ?: "TRY"
-                    _isPremium.value = profile.isPremium
-                    _planExpiresAt.value = profile.planExpiresAt
                 },
                 onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_profile_load)) }
             )

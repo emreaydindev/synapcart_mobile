@@ -24,20 +24,32 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.BuildConfig
 import com.neilb.synapcart.R
+import com.neilb.synapcart.data.billing.BillingRepository
+import com.neilb.synapcart.data.billing.BillingState
+import com.neilb.synapcart.ui.components.currentLocale
+import com.neilb.synapcart.util.formatDate
+import com.neilb.synapcart.util.parseServerTimestamp
 import com.neilb.synapcart.ui.components.BrandMark
 import com.neilb.synapcart.ui.components.PremiumBadge
 import com.neilb.synapcart.ui.components.PrimaryButton
@@ -50,14 +62,36 @@ import com.neilb.synapcart.ui.theme.SynapColors
 private data class PlanRow(val label: Int, val free: String?, val premium: String?)
 
 /**
- * Premium upsell. Purchasing arrives with Play Billing (roadmap Phase 5); until then the
- * plans are shown and the buy button is disabled with a "coming soon" label.
+ * Premium upsell with Play Billing: the free-vs-premium table, monthly/yearly base plans with
+ * their Play prices (yearly shows the saving), the purchase button, the renewal terms and a
+ * "Manage subscription" link. Premium users see their status instead of the buy button.
  */
 @Composable
-fun PaywallScreen(onNavigateBack: () -> Unit) {
+fun PaywallScreen(viewModel: PaywallViewModel, onNavigateBack: () -> Unit) {
+    val billingState by viewModel.billingState.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
+    val planExpiresAt by viewModel.planExpiresAt.collectAsStateWithLifecycle()
+    val purchasing by viewModel.purchasing.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) { viewModel.closeEvents.collect { onNavigateBack() } }
+
     var yearly by rememberSaveable { mutableStateOf(true) }
+    val ready = billingState as? BillingState.Ready
+    // Fall back to whichever base plan exists if Play only returned one.
+    LaunchedEffect(ready) {
+        if (ready != null) {
+            if (yearly && ready.yearly == null && ready.monthly != null) yearly = false
+            if (!yearly && ready.monthly == null && ready.yearly != null) yearly = true
+        }
+    }
+    val selectedOffer = if (yearly) ready?.yearly else ready?.monthly
+
     val included = stringResource(R.string.paywall_included)
     val unlimited = stringResource(R.string.paywall_unlimited)
+    // Keep in sync with the backend's plan_service and the web's lib/site.ts.
     val rows = listOf(
         PlanRow(R.string.paywall_row_messages, "5", "100"),
         PlanRow(R.string.paywall_row_products, "3", "8"),
@@ -77,13 +111,29 @@ fun PaywallScreen(onNavigateBack: () -> Unit) {
                         .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceM),
                     verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
                 ) {
-                    PrimaryButton(
-                        text = stringResource(R.string.paywall_coming_soon),
-                        onClick = {},
-                        enabled = false,
-                        brush = SynapColors.PremiumGradient,
-                        contentColor = SynapColors.OnPremiumGold
-                    )
+                    if (isPremium) {
+                        val expiry = parseServerTimestamp(planExpiresAt)?.let { formatDate(it, currentLocale()) }
+                        Text(
+                            if (expiry != null) stringResource(R.string.paywall_premium_until, expiry)
+                            else stringResource(R.string.paywall_premium_active),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = SynapColors.PremiumGold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        PrimaryButton(
+                            text = when {
+                                selectedOffer?.freeTrialPeriod != null -> stringResource(R.string.paywall_free_trial)
+                                else -> stringResource(R.string.paywall_subscribe)
+                            },
+                            onClick = { activity?.let { viewModel.purchase(it, yearly) } },
+                            enabled = selectedOffer != null && activity != null,
+                            isLoading = purchasing,
+                            brush = SynapColors.PremiumGradient,
+                            contentColor = SynapColors.OnPremiumGold
+                        )
+                    }
                     Text(
                         stringResource(R.string.paywall_legal),
                         style = MaterialTheme.typography.bodySmall,
@@ -91,6 +141,17 @@ fun PaywallScreen(onNavigateBack: () -> Unit) {
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        TextButton(onClick = { uriHandler.openUri(BillingRepository.manageSubscriptionUrl(context.packageName)) }) {
+                            Text(stringResource(R.string.plan_manage), style = MaterialTheme.typography.labelMedium)
+                        }
+                        TextButton(onClick = { uriHandler.openUri(BuildConfig.WEB_URL + "terms") }) {
+                            Text(stringResource(R.string.legal_terms), style = MaterialTheme.typography.labelMedium)
+                        }
+                        TextButton(onClick = { uriHandler.openUri(BuildConfig.WEB_URL + "privacy") }) {
+                            Text(stringResource(R.string.legal_privacy), style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
             }
         }
@@ -120,22 +181,51 @@ fun PaywallScreen(onNavigateBack: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
                 ComparisonTable(rows)
-                Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS)) {
-                    PlanOption(
-                        title = stringResource(R.string.paywall_monthly),
-                        caption = stringResource(R.string.paywall_monthly_caption),
-                        selected = !yearly,
-                        onClick = { yearly = false },
-                        modifier = Modifier.weight(1f)
-                    )
-                    PlanOption(
-                        title = stringResource(R.string.paywall_yearly),
-                        caption = stringResource(R.string.paywall_yearly_caption),
-                        selected = yearly,
-                        onClick = { yearly = true },
-                        modifier = Modifier.weight(1f),
-                        highlight = stringResource(R.string.paywall_best_value)
-                    )
+                if (!isPremium) {
+                    when (billingState) {
+                        BillingState.Loading -> Text(
+                            stringResource(R.string.paywall_loading),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        BillingState.Unavailable -> Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
+                        ) {
+                            Text(
+                                stringResource(R.string.paywall_unavailable),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            TextButton(onClick = viewModel::loadOffers) { Text(stringResource(R.string.action_retry)) }
+                        }
+                        is BillingState.Ready -> {
+                            val state = billingState as BillingState.Ready
+                            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS)) {
+                                state.monthly?.let { offer ->
+                                    PlanOption(
+                                        title = stringResource(R.string.paywall_monthly),
+                                        caption = stringResource(R.string.paywall_price_month, offer.formattedPrice),
+                                        selected = !yearly,
+                                        onClick = { yearly = false },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                state.yearly?.let { offer ->
+                                    PlanOption(
+                                        title = stringResource(R.string.paywall_yearly),
+                                        caption = stringResource(R.string.paywall_price_year, offer.formattedPrice),
+                                        selected = yearly,
+                                        onClick = { yearly = true },
+                                        modifier = Modifier.weight(1f),
+                                        highlight = state.yearlySavingPercent?.let { stringResource(R.string.paywall_save, it) }
+                                            ?: stringResource(R.string.paywall_best_value)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

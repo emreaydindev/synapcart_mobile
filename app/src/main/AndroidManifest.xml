@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Price-alert notifications (Android 13+ asks at runtime, after the first favorite). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".SynapCartApp"
@@ -49,6 +51,24 @@
                 <data android:host="login" />
             </intent-filter>
         </activity>
+
+        <!-- FCM price alerts (active only when the build has google-services.json). -->
+        <service
+            android:name=".data.push.SynapCartMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="price_alerts" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
 
         <!-- Persists the per-app language chosen with AppCompatDelegate.setApplicationLocales
              on Android 12 and below (Android 13+ stores it in the system). -->

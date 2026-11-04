@@ -18,5 +18,7 @@ interface FavoritesRepository {
     suspend fun remove(favorite: FavoriteResponse): Result<Unit>
     /** Adds or removes by link; returns the new state (true = now a favorite). */
     suspend fun toggle(product: ProductDTO): Result<Boolean>
+    /** Sets ([targetPrice]) or clears (null) the price alert of a favorite. Premium only. */
+    suspend fun setTargetPrice(favoriteId: Int, targetPrice: Double?): Result<FavoriteResponse>
     fun clear()
 }

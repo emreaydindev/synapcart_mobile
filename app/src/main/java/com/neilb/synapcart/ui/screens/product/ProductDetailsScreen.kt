@@ -24,18 +24,26 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.automirrored.outlined.CompareArrows
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neilb.synapcart.R
@@ -45,11 +53,14 @@ import com.neilb.synapcart.ui.components.PrimaryButton
 import com.neilb.synapcart.ui.components.ProductImage
 import com.neilb.synapcart.ui.components.SecondaryButton
 import com.neilb.synapcart.ui.components.SynapScaffold
+import com.neilb.synapcart.ui.components.SynapTextField
 import com.neilb.synapcart.ui.components.SynapTopBar
 import com.neilb.synapcart.ui.components.currentLocale
 import com.neilb.synapcart.ui.theme.Dimens
 import com.neilb.synapcart.ui.theme.SynapColors
 import com.neilb.synapcart.util.formatPrice
+import com.neilb.synapcart.util.parsePriceInput
+import com.neilb.synapcart.util.suggestTargetPrice
 
 @Composable
 fun ProductDetailsScreen(
@@ -67,6 +78,23 @@ fun ProductDetailsScreen(
     val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
     val currency by viewModel.currency.collectAsStateWithLifecycle()
     val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
+    val favorite by viewModel.favorite.collectAsStateWithLifecycle()
+    val savingAlert by viewModel.savingAlert.collectAsStateWithLifecycle()
+    var showAlertDialog by rememberSaveable { mutableStateOf(false) }
+    val alertTarget = favorite?.targetPrice
+    val alertCurrency = favorite?.currency ?: currency
+    LaunchedEffect(Unit) { viewModel.paywallEvents.collect { onOpenPaywall() } }
+
+    if (showAlertDialog) {
+        PriceAlertDialog(
+            currency = alertCurrency,
+            initial = alertTarget ?: suggestTargetPrice(product.price),
+            hasAlert = alertTarget != null,
+            onSave = { target -> showAlertDialog = false; viewModel.setPriceAlert(target) },
+            onRemove = { showAlertDialog = false; viewModel.setPriceAlert(null) },
+            onDismiss = { showAlertDialog = false }
+        )
+    }
 
     SynapScaffold(
         topBar = {
@@ -144,10 +172,12 @@ fun ProductDetailsScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS)) {
                 PremiumAction(
-                    label = stringResource(R.string.product_price_alert),
+                    label = alertTarget?.let {
+                        stringResource(R.string.product_price_alert_on, formatPrice(it, alertCurrency, currentLocale()) ?: it.toString())
+                    } ?: stringResource(R.string.product_price_alert),
                     icon = Icons.Outlined.NotificationsActive,
                     isPremium = isPremium,
-                    onClick = { if (isPremium) viewModel.onPriceAlert() else onOpenPaywall() },
+                    onClick = { if (isPremium) { if (!savingAlert) showAlertDialog = true } else onOpenPaywall() },
                     modifier = Modifier.weight(1f)
                 )
                 if (viewModel.canCompare) {
@@ -201,4 +231,59 @@ private fun PremiumAction(
             )
         }
     }
+}
+
+@Composable
+private fun PriceAlertDialog(
+    currency: String,
+    initial: Double?,
+    hasAlert: Boolean,
+    onSave: (Double) -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by rememberSaveable {
+        mutableStateOf(initial?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() }.orEmpty())
+    }
+    val parsed = parsePriceInput(text)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = SynapColors.PremiumGold) },
+        title = { Text(stringResource(R.string.price_alert_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceL)) {
+                Text(
+                    stringResource(R.string.price_alert_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                SynapTextField(
+                    value = text,
+                    onValueChange = { if (it.length <= 16) text = it },
+                    label = stringResource(R.string.price_alert_target_label, currency),
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done,
+                    keyboardActions = KeyboardActions(onDone = { parsed?.let(onSave) }),
+                    isError = text.isNotBlank() && parsed == null,
+                    supportingText = if (text.isNotBlank() && parsed == null) stringResource(R.string.price_alert_invalid) else null
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { parsed?.let(onSave) }, enabled = parsed != null) {
+                Text(stringResource(R.string.price_alert_set))
+            }
+        },
+        dismissButton = {
+            if (hasAlert) {
+                TextButton(onClick = onRemove) {
+                    Text(stringResource(R.string.price_alert_remove), color = MaterialTheme.colorScheme.error)
+                }
+            } else {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.extraLarge
+    )
 }

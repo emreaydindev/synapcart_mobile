@@ -27,8 +27,11 @@ sealed class ApiException(
     /** 401: the session is no longer valid (the interceptor has already cleared it). */
     class Unauthorized(detail: String? = null) : ApiException(detail, R.string.error_unauthorized)
 
-    /** 402: daily quota used up / premium-only feature. */
-    class QuotaExceeded(detail: String? = null) : ApiException(detail, R.string.error_quota)
+    /**
+     * 402: a plan limit. [code] is the backend's machine code: [CODE_QUOTA] (daily messages used
+     * up), [CODE_PREMIUM] (premium-only feature) or [CODE_HISTORY_LOCKED] (old free-plan chat).
+     */
+    class QuotaExceeded(detail: String? = null, val code: String? = null) : ApiException(detail, R.string.error_quota)
 
     /** 429: rate limited. */
     class RateLimited(detail: String? = null) : ApiException(detail, R.string.error_rate_limited)
@@ -40,12 +43,21 @@ sealed class ApiException(
     class Validation(@StringRes res: Int) : ApiException(null, res)
 
     companion object {
+        const val CODE_QUOTA = "quota_exceeded"
+        const val CODE_PREMIUM = "premium_required"
+        const val CODE_HISTORY_LOCKED = "history_locked"
+
         /** Extracts `detail` from a FastAPI error body; null if absent or not a string. */
-        fun parseDetail(body: String?): String? {
+        fun parseDetail(body: String?): String? = parseStringField(body, "detail")
+
+        /** The machine-readable `code` of a plan error body, if any. */
+        fun parseCode(body: String?): String? = parseStringField(body, "code")
+
+        private fun parseStringField(body: String?, name: String): String? {
             if (body.isNullOrBlank()) return null
             return try {
-                val detail = JsonParser.parseString(body).asJsonObject.get("detail")
-                if (detail != null && detail.isJsonPrimitive) detail.asString.takeIf { it.isNotBlank() } else null
+                val value = JsonParser.parseString(body).asJsonObject.get(name)
+                if (value != null && value.isJsonPrimitive) value.asString.takeIf { it.isNotBlank() } else null
             } catch (_: Exception) {
                 null
             }
@@ -55,7 +67,7 @@ sealed class ApiException(
             val detail = parseDetail(body)
             return when (code) {
                 401 -> Unauthorized(detail)
-                402 -> QuotaExceeded(detail)
+                402 -> QuotaExceeded(detail, parseCode(body))
                 429 -> RateLimited(detail)
                 else -> Http(code, detail)
             }

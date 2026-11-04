@@ -19,5 +19,8 @@ data class FavoriteResponse(
     @SerializedName("currency") val currency: String?,
     @SerializedName("source") val source: String?,
     @SerializedName("thumbnail") val thumbnailUrl: String?,
-    @SerializedName("added_at") val addedAt: String?
+    @SerializedName("added_at") val addedAt: String?,
+    /** Price alert target (premium); null = no alert. */
+    @SerializedName("target_price") val targetPrice: Double? = null,
+    @SerializedName("last_checked_price") val lastCheckedPrice: Double? = null
 )

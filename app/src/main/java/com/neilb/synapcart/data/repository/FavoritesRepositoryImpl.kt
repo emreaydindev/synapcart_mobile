@@ -1,6 +1,10 @@
 package com.neilb.synapcart.data.repository
 
+import com.google.gson.GsonBuilder
 import com.neilb.synapcart.data.model.AddFavoriteRequest
+import com.neilb.synapcart.data.model.FavoriteUpdateRequest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.neilb.synapcart.data.model.FavoriteResponse
 import com.neilb.synapcart.data.model.ProductDTO
 import com.neilb.synapcart.data.remote.ApiException
@@ -20,6 +24,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
+
+/** `target_price: null` must be sent explicitly to clear an alert; the default Gson drops nulls. */
+private val nullsGson = GsonBuilder().serializeNulls().create()
+private val JSON = "application/json; charset=utf-8".toMediaType()
 
 class FavoritesRepositoryImpl(
     private val apiService: FavoritesApiService,
@@ -77,6 +85,14 @@ class FavoritesRepositoryImpl(
             add(product).map { true }
         }
     }
+
+    override suspend fun setTargetPrice(favoriteId: Int, targetPrice: Double?): Result<FavoriteResponse> =
+        safeApiCall {
+            val body = nullsGson.toJson(FavoriteUpdateRequest(targetPrice)).toRequestBody(JSON)
+            apiService.updateFavorite(favoriteId, body)
+        }.onSuccess { updated ->
+            _favorites.update { list -> list.map { if (it.id == updated.id) updated else it } }
+        }
 
     override fun clear() {
         _favorites.value = emptyList()
