@@ -3,11 +3,15 @@ package com.neilb.synapcart.util
 import com.neilb.synapcart.data.model.ProductDTO
 
 /**
- * Hands the tapped product from a list screen to the product-details screen without
- * serialising it into the navigation route. If the process was killed in between, [product]
- * is null and the details screen simply closes.
+ * Hands products to the detail and compare screens without serializing them into routes.
+ * In-memory only: after process death the screens find it empty and close themselves.
  */
 class SelectedProductStore {
-    @Volatile
     var product: ProductDTO? = null
+
+    /** The results shown together with [product]; "Compare" on the detail screen uses them. */
+    var siblings: List<ProductDTO> = emptyList()
+
+    /** 2–4 products picked for the compare screen. */
+    var compareProducts: List<ProductDTO> = emptyList()
 }

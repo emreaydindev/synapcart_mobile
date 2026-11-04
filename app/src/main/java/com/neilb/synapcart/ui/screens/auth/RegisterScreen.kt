@@ -1,27 +1,39 @@
 package com.neilb.synapcart.ui.screens.auth
 
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.style.TextAlign
-import com.neilb.synapcart.BuildConfig
-
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.BuildConfig
+import com.neilb.synapcart.R
+import com.neilb.synapcart.ui.components.BrandHeader
 import com.neilb.synapcart.ui.components.PrimaryButton
-import com.neilb.synapcart.ui.components.SynapCartTextField
+import com.neilb.synapcart.ui.components.SynapTextField
+import com.neilb.synapcart.util.PasswordRules
 
 @Composable
 fun RegisterScreen(
@@ -29,11 +41,12 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
-    val fullName by viewModel.fullName.collectAsState()
-    val email by viewModel.email.collectAsState()
-    val password by viewModel.password.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isRegisterSuccess by viewModel.isRegisterSuccess.collectAsState()
+    val fullName by viewModel.fullName.collectAsStateWithLifecycle()
+    val email by viewModel.email.collectAsStateWithLifecycle()
+    val password by viewModel.password.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isRegisterSuccess by viewModel.isRegisterSuccess.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(isRegisterSuccess) {
         if (isRegisterSuccess) {
@@ -42,91 +55,78 @@ fun RegisterScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Hesap Oluştur",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Text(
-            text = "Yapay zeka asistanınla tanışmaya hazır mısın?",
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-            modifier = Modifier.padding(bottom = 40.dp)
-        )
+    val passwordError = password.takeIf { it.isNotEmpty() }?.let { PasswordRules.validate(it) }
 
-        SynapCartTextField(
+    AuthLayout(onBack = onNavigateToLogin) {
+        BrandHeader(
+            title = stringResource(R.string.register_title),
+            subtitle = stringResource(R.string.register_subtitle),
+            markWidth = 64.dp
+        )
+        SynapTextField(
             value = fullName,
             onValueChange = viewModel::onFullNameChange,
-            label = "Ad Soyad",
-            leadingIcon = Icons.Default.Person,
-            modifier = Modifier.padding(bottom = 16.dp)
+            label = stringResource(R.string.field_full_name),
+            leadingIcon = Icons.Outlined.Person
         )
-
-        SynapCartTextField(
+        SynapTextField(
             value = email,
             onValueChange = viewModel::onEmailChange,
-            label = "E-posta",
-            leadingIcon = Icons.Default.Email,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.padding(bottom = 16.dp)
+            label = stringResource(R.string.field_email),
+            leadingIcon = Icons.Outlined.Email,
+            keyboardType = KeyboardType.Email
         )
-
-        SynapCartTextField(
+        SynapTextField(
             value = password,
             onValueChange = viewModel::onPasswordChange,
-            label = "Şifre",
-            leadingIcon = Icons.Default.Lock,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.padding(bottom = 32.dp)
+            label = stringResource(R.string.field_password),
+            leadingIcon = Icons.Outlined.Lock,
+            isPassword = true,
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); viewModel.register() }),
+            isError = passwordError != null,
+            supportingText = stringResource(passwordError ?: R.string.password_hint)
         )
-
         PrimaryButton(
-            text = "Kayıt Ol",
-            onClick = { viewModel.register() },
+            text = stringResource(R.string.register_submit),
+            onClick = { focusManager.clearFocus(); viewModel.register() },
             isLoading = isLoading
         )
-
-        val uriHandler = LocalUriHandler.current
-        Text(
-            text = "Kayıt olarak Kullanım Koşulları'nı ve Gizlilik Politikası'nı kabul etmiş olursunuz.",
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 16.dp)
-        )
-        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
-            TextButton(onClick = { uriHandler.openUri(BuildConfig.WEB_URL + "terms") }) {
-                Text("Kullanım Koşulları", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-            }
-            TextButton(onClick = { uriHandler.openUri(BuildConfig.WEB_URL + "privacy") }) {
-                Text("Gizlilik Politikası", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "Zaten hesabın var mı?",
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
+        LegalConsent()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(R.string.register_have_account), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = onNavigateToLogin) {
-                Text(
-                    text = "Giriş Yap",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(stringResource(R.string.login_submit), style = MaterialTheme.typography.labelLarge)
             }
         }
     }
+}
+
+/** "By signing up you accept the Terms and the Privacy Policy", with both as links. */
+@Composable
+private fun LegalConsent() {
+    val terms = stringResource(R.string.legal_terms)
+    val privacy = stringResource(R.string.legal_privacy)
+    val template = stringResource(R.string.register_consent, terms, privacy)
+    val linkStyle = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold))
+    val text = buildAnnotatedString {
+        append(template)
+        listOf(terms to "terms", privacy to "privacy").forEach { (label, path) ->
+            val start = template.indexOf(label)
+            if (start >= 0) {
+                addLink(LinkAnnotation.Url(BuildConfig.WEB_URL + path, linkStyle), start, start + label.length)
+            }
+        }
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
 }

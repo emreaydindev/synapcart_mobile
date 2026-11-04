@@ -1,101 +1,81 @@
 package com.neilb.synapcart.ui.screens.auth
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.TaskAlt
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.R
+import com.neilb.synapcart.ui.components.BrandHeader
+import com.neilb.synapcart.ui.components.EmptyState
 import com.neilb.synapcart.ui.components.PrimaryButton
-import com.neilb.synapcart.ui.components.SynapCartTextField
+import com.neilb.synapcart.ui.components.SynapTextField
+import com.neilb.synapcart.ui.theme.Dimens
+import com.neilb.synapcart.util.PasswordRules
 
 @Composable
 fun ResetPasswordScreen(
     viewModel: ResetPasswordViewModel,
     onNavigateToLogin: () -> Unit
 ) {
-    val newPassword by viewModel.newPassword.collectAsState()
-    val confirmPassword by viewModel.confirmPassword.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isSuccess by viewModel.isSuccess.collectAsState()
+    val newPassword by viewModel.newPassword.collectAsStateWithLifecycle()
+    val confirmPassword by viewModel.confirmPassword.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isSuccess by viewModel.isSuccess.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
+    val passwordError = newPassword.takeIf { it.isNotEmpty() }?.let { PasswordRules.validate(it) }
+    val mismatch = confirmPassword.isNotEmpty() && confirmPassword != newPassword
+
+    AuthLayout {
         if (isSuccess) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(100.dp)
+            Spacer(Modifier.height(Dimens.SpaceXxl))
+            EmptyState(
+                icon = Icons.Outlined.TaskAlt,
+                title = stringResource(R.string.reset_done_title),
+                message = stringResource(R.string.reset_done_message),
+                action = { PrimaryButton(text = stringResource(R.string.login_submit), onClick = onNavigateToLogin) }
             )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = "Şifren Yenilendi!",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "Artık yeni şifrenle giriş yapabilirsin.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 16.dp, bottom = 48.dp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            PrimaryButton(text = "Giriş Yap", onClick = onNavigateToLogin)
         } else {
-            Text(
-                text = "Yeni Şifre Belirle",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 8.dp)
+            Spacer(Modifier.height(Dimens.SpaceXl))
+            BrandHeader(
+                title = stringResource(R.string.reset_title),
+                subtitle = stringResource(R.string.reset_subtitle),
+                markWidth = 64.dp
             )
-            Text(
-                text = "Lütfen hatırlayabileceğin güçlü bir şifre seç.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 40.dp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-
-            SynapCartTextField(
+            Spacer(Modifier.height(Dimens.SpaceS))
+            SynapTextField(
                 value = newPassword,
                 onValueChange = viewModel::onNewPasswordChange,
-                label = "Yeni Şifre",
-                leadingIcon = Icons.Default.Lock,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.padding(bottom = 16.dp)
+                label = stringResource(R.string.field_new_password),
+                leadingIcon = Icons.Outlined.Lock,
+                isPassword = true,
+                isError = passwordError != null,
+                supportingText = stringResource(passwordError ?: R.string.password_hint)
             )
-
-            SynapCartTextField(
+            SynapTextField(
                 value = confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChange,
-                label = "Şifreyi Onayla",
-                leadingIcon = Icons.Default.Lock,
-                visualTransformation = PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                modifier = Modifier.padding(bottom = 32.dp)
+                label = stringResource(R.string.field_confirm_password),
+                leadingIcon = Icons.Outlined.Lock,
+                isPassword = true,
+                imeAction = ImeAction.Done,
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); viewModel.resetPassword() }),
+                isError = mismatch,
+                supportingText = if (mismatch) stringResource(R.string.error_passwords_mismatch) else null
             )
-
             PrimaryButton(
-                text = "Şifreyi Güncelle",
-                onClick = { viewModel.resetPassword() },
+                text = stringResource(R.string.reset_submit),
+                onClick = { focusManager.clearFocus(); viewModel.resetPassword() },
                 isLoading = isLoading
             )
         }

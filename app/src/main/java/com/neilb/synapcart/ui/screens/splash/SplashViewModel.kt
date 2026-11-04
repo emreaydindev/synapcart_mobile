@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.ui.navigation.Screen
 import com.neilb.synapcart.util.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,8 +26,6 @@ class SplashViewModel @Inject constructor(
 
     private fun checkAuthStatus() {
         viewModelScope.launch {
-            delay(800)
-
             val token = sessionManager.authToken.firstOrNull()
             val onboardingCompleted = sessionManager.isOnboardingCompleted.firstOrNull() ?: false
 

@@ -34,12 +34,16 @@ import com.neilb.synapcart.ui.screens.product.ProductDetailsViewModel
 import com.neilb.synapcart.ui.screens.product.ProductWebScreen
 import com.neilb.synapcart.ui.screens.profile.ProfileScreen
 import com.neilb.synapcart.ui.screens.profile.ProfileViewModel
+import com.neilb.synapcart.ui.screens.compare.CompareScreen
+import com.neilb.synapcart.ui.screens.compare.CompareViewModel
+import com.neilb.synapcart.ui.screens.paywall.PaywallScreen
 
 @Composable
 fun SynapCartNavHost(
     navController: NavHostController,
     sessionEvents: SessionEvents,
     selectedProductStore: SelectedProductStore,
+    onStartDestinationResolved: () -> Unit = {},
     startDestination: String = Screen.Splash.route
 ) {
     // The token was rejected (expired or revoked): the session is already cleared, go to login.
@@ -57,9 +61,20 @@ fun SynapCartNavHost(
         }
     }
 
-    fun openProduct(product: ProductDTO) {
+    /** [siblings]: the other results shown with it (same answer / favorites), for Compare. */
+    fun openProduct(product: ProductDTO, siblings: List<ProductDTO> = emptyList()) {
         selectedProductStore.product = product
+        selectedProductStore.siblings = siblings
         navController.navigate(Screen.ProductDetails.route)
+    }
+
+    fun openCompare(products: List<ProductDTO>) {
+        selectedProductStore.compareProducts = products
+        navController.navigate(Screen.Compare.route)
+    }
+
+    fun openPaywall() {
+        navController.navigate(Screen.Paywall.route) { launchSingleTop = true }
     }
 
     NavHost(
@@ -71,6 +86,7 @@ fun SynapCartNavHost(
 
             SplashScreen(
                 viewModel = splashViewModel,
+                onDestinationResolved = onStartDestinationResolved,
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
@@ -175,6 +191,7 @@ fun SynapCartNavHost(
             ProfileScreen(
                 viewModel = profileViewModel,
                 onNavigateBack = { navController.popBackStack() },
+                onOpenPaywall = ::openPaywall,
                 onAccountDeleted = {
                     navController.navigate(Screen.Splash.route) {
                         popUpTo(0) { inclusive = true }
@@ -188,7 +205,9 @@ fun SynapCartNavHost(
             FavoritesScreen(
                 viewModel = favoritesViewModel,
                 onNavigateBack = { navController.popBackStack() },
-                onOpenProduct = { favorite -> openProduct(favorite.toProduct()) }
+                onOpenProduct = { favorite, all -> openProduct(favorite.toProduct(), all.map { it.toProduct() }) },
+                onCompare = { favorites -> openCompare(favorites.map { it.toProduct() }) },
+                onOpenPaywall = ::openPaywall
             )
         }
 
@@ -203,7 +222,8 @@ fun SynapCartNavHost(
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onNavigateToProduct = { product -> openProduct(product) }
+                onNavigateToProduct = { product, siblings -> openProduct(product, siblings) },
+                onOpenPaywall = ::openPaywall
             )
         }
 
@@ -215,8 +235,23 @@ fun SynapCartNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToWeb = { link ->
                     navController.navigate(Screen.ProductWeb.passUrl(link))
-                }
+                },
+                onCompare = { products -> openCompare(products) },
+                onOpenPaywall = ::openPaywall
             )
+        }
+
+        composable(route = Screen.Compare.route) {
+            val viewModel: CompareViewModel = hiltViewModel()
+            CompareScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onOpenProduct = { product -> openProduct(product) }
+            )
+        }
+
+        composable(route = Screen.Paywall.route) {
+            PaywallScreen(onNavigateBack = { navController.popBackStack() })
         }
 
         composable(

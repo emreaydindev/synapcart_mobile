@@ -1,33 +1,45 @@
 package com.neilb.synapcart.data.remote
 
+import androidx.annotation.StringRes
 import com.google.gson.JsonParser
+import com.neilb.synapcart.R
+import com.neilb.synapcart.util.UiText
 import kotlinx.coroutines.CancellationException
 import retrofit2.HttpException
 import java.io.IOException
 
 /**
- * Typed failure for every backend call. [message] is always user-presentable: the backend's
- * `detail` string when it sent one, otherwise a generic message for the failure kind.
+ * Typed failure for every backend call. [uiText] is always user-presentable: the backend's
+ * `detail` string when it sent one (already in the user's language), otherwise a localized
+ * generic message for the failure kind.
  */
-sealed class ApiException(message: String) : Exception(message) {
+sealed class ApiException(
+    /** The backend's `detail`, if it sent one. */
+    val detail: String?,
+    @param:StringRes private val fallbackRes: Int
+) : Exception(detail ?: "ApiException") {
+
+    val uiText: UiText get() = detail?.let { UiText.Raw(it) } ?: UiText.Res(fallbackRes)
+
     /** No connection, DNS failure, timeout. */
-    class Network(message: String = "Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.") : ApiException(message)
+    class Network : ApiException(null, R.string.error_network)
 
     /** 401: the session is no longer valid (the interceptor has already cleared it). */
-    class Unauthorized(message: String = "Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.") : ApiException(message)
+    class Unauthorized(detail: String? = null) : ApiException(detail, R.string.error_unauthorized)
 
     /** 402: daily quota used up / premium-only feature. */
-    class QuotaExceeded(message: String = "Günlük kullanım hakkınız doldu.") : ApiException(message)
+    class QuotaExceeded(detail: String? = null) : ApiException(detail, R.string.error_quota)
 
     /** 429: rate limited. */
-    class RateLimited(message: String = "Çok fazla deneme yaptınız. Lütfen biraz sonra tekrar deneyin.") : ApiException(message)
+    class RateLimited(detail: String? = null) : ApiException(detail, R.string.error_rate_limited)
 
     /** Any other HTTP error. */
-    class Http(val code: Int, message: String) : ApiException(message)
+    class Http(val code: Int, detail: String? = null) : ApiException(detail, R.string.error_generic)
+
+    /** Client-side validation failed before any request was made. */
+    class Validation(@StringRes res: Int) : ApiException(null, res)
 
     companion object {
-        const val GENERIC_MESSAGE = "Sunucu ile iletişimde bir sorun oluştu."
-
         /** Extracts `detail` from a FastAPI error body; null if absent or not a string. */
         fun parseDetail(body: String?): String? {
             if (body.isNullOrBlank()) return null
@@ -42,14 +54,18 @@ sealed class ApiException(message: String) : Exception(message) {
         fun fromHttp(code: Int, body: String?): ApiException {
             val detail = parseDetail(body)
             return when (code) {
-                401 -> if (detail != null) Unauthorized(detail) else Unauthorized()
-                402 -> if (detail != null) QuotaExceeded(detail) else QuotaExceeded()
-                429 -> if (detail != null) RateLimited(detail) else RateLimited()
-                else -> Http(code, detail ?: GENERIC_MESSAGE)
+                401 -> Unauthorized(detail)
+                402 -> QuotaExceeded(detail)
+                429 -> RateLimited(detail)
+                else -> Http(code, detail)
             }
         }
     }
 }
+
+/** The user-facing message for any failure, using [fallback] for non-API errors. */
+fun Throwable.toUiText(@StringRes fallback: Int = R.string.error_generic): UiText =
+    (this as? ApiException)?.uiText ?: UiText.Res(fallback)
 
 /** Runs a Retrofit call and maps every failure to an [ApiException] inside [Result]. */
 suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> {
@@ -57,12 +73,14 @@ suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> {
         Result.success(block())
     } catch (e: CancellationException) {
         throw e
+    } catch (e: ApiException) {
+        Result.failure(e)
     } catch (e: HttpException) {
         Result.failure(ApiException.fromHttp(e.code(), e.response()?.errorBody()?.string()))
     } catch (e: IOException) {
         Result.failure(ApiException.Network())
     } catch (e: Exception) {
-        Result.failure(ApiException.Http(-1, ApiException.GENERIC_MESSAGE))
+        Result.failure(ApiException.Http(-1))
     }
 }
 

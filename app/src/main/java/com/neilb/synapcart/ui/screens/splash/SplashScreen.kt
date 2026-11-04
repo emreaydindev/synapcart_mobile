@@ -1,78 +1,49 @@
 package com.neilb.synapcart.ui.screens.splash
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.neilb.synapcart.R
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.ui.components.BrandHeader
 import com.neilb.synapcart.ui.navigation.Screen
-import com.neilb.synapcart.ui.theme.SynapDarkBg
-import com.neilb.synapcart.ui.theme.SynapForeground
 
+/**
+ * Routes to Login, Onboarding or Dashboard. The system splash (core-splashscreen) stays up
+ * until [onDestinationResolved], so this branded frame is only a fallback.
+ */
 @Composable
 fun SplashScreen(
     viewModel: SplashViewModel,
+    onDestinationResolved: () -> Unit,
     onNavigateToLogin: () -> Unit,
     onNavigateToOnboarding: () -> Unit,
     onNavigateToMain: () -> Unit
 ) {
-    val destination by viewModel.destination.collectAsState()
+    val destination by viewModel.destination.collectAsStateWithLifecycle()
 
     LaunchedEffect(destination) {
-        when (destination) {
+        val target = destination ?: return@LaunchedEffect
+        when (target) {
             Screen.Login.route -> onNavigateToLogin()
             Screen.Onboarding.route -> onNavigateToOnboarding()
             Screen.Dashboard.route -> onNavigateToMain()
         }
+        onDestinationResolved()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SynapDarkBg),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-            Image(
-                painter = painterResource(id = R.mipmap.ic_launcher_foreground),
-                contentDescription = "SynapCart Marka Logosu",
-                modifier = Modifier
-                    .size(300.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "SynapCart",
-                fontSize = 42.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.SansSerif,
-                color = SynapForeground,
-                letterSpacing = 4.sp
-            )
-
-            Text(
-                text = "Yapay Zeka Destekli Alışveriş Ajanı",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Normal,
-                fontFamily = FontFamily.SansSerif,
-                color = Color.White.copy(alpha = 0.35f),
-                modifier = Modifier.padding(top = 10.dp),
-                letterSpacing = 1.5.sp
-            )
-        }
+        BrandHeader(markWidth = 120.dp)
     }
 }

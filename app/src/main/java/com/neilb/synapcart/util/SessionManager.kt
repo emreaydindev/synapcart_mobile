@@ -19,6 +19,7 @@ class SessionManager(private val context: Context) {
         private val USER_NAME_KEY = stringPreferencesKey("user_name")
         private val CURRENCY_KEY = stringPreferencesKey("currency")
         private val LANGUAGE_KEY = stringPreferencesKey("language")
+        private val PLAN_KEY = stringPreferencesKey("plan")
         private val ONBOARDING_COMPLETED_KEY = booleanPreferencesKey("onboarding_completed")
 
         const val DEFAULT_CURRENCY = "TRY"
@@ -59,6 +60,17 @@ class SessionManager(private val context: Context) {
         preferences[LANGUAGE_KEY] ?: DEFAULT_LANGUAGE
     }
 
+    /** True when the cached plan (from `/user/me`) is premium. */
+    val isPremium: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PLAN_KEY] == "premium"
+    }
+
+    suspend fun savePlan(plan: String?) {
+        context.dataStore.edit { preferences ->
+            if (plan.isNullOrBlank()) preferences.remove(PLAN_KEY) else preferences[PLAN_KEY] = plan
+        }
+    }
+
     suspend fun saveUserName(userName: String) {
         context.dataStore.edit { preferences ->
             preferences[USER_NAME_KEY] = userName
@@ -81,6 +93,7 @@ class SessionManager(private val context: Context) {
             preferences.remove(ACCESS_TOKEN_KEY)
             preferences.remove(USER_NAME_KEY)
             preferences.remove(CURRENCY_KEY)
+            preferences.remove(PLAN_KEY)
         }
     }
 }

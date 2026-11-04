@@ -9,7 +9,10 @@ import com.neilb.synapcart.data.remote.requireSuccess
 import com.neilb.synapcart.data.remote.safeApiCall
 import com.neilb.synapcart.domain.repository.FavoritesRepository
 import com.neilb.synapcart.domain.repository.UserRepository
+import com.neilb.synapcart.util.AppLocale
 import com.neilb.synapcart.util.SessionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class UserRepositoryImpl(
     private val apiService: UserApiService,
@@ -41,5 +44,8 @@ class UserRepositoryImpl(
     private suspend fun cache(profile: UserProfile) {
         profile.fullName?.takeIf { it.isNotBlank() }?.let { sessionManager.saveUserName(it) }
         sessionManager.savePreferences(profile.language, profile.currency)
+        sessionManager.savePlan(profile.plan)
+        // The profile language drives the UI language (also on a new device after login).
+        withContext(Dispatchers.Main) { AppLocale.apply(profile.language) }
     }
 }

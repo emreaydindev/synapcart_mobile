@@ -1,5 +1,7 @@
 package com.neilb.synapcart.ui.screens.auth
 
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.remote.toUiText
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.domain.use_case.auth.AuthUseCases
@@ -48,7 +50,7 @@ class RegisterViewModel @Inject constructor(
         if (_isLoading.value) return
         viewModelScope.launch {
             if (_fullName.value.isBlank() || _email.value.isBlank() || _password.value.isBlank()) {
-                snackbarController.showSnackbar("Lütfen tüm alanları eksiksiz doldurun.")
+                snackbarController.showSnackbar(R.string.error_fill_all_fields)
                 return@launch
             }
 
@@ -57,7 +59,7 @@ class RegisterViewModel @Inject constructor(
             authUseCases.register(_fullName.value, _email.value, _password.value).fold(
                 onSuccess = { _isRegisterSuccess.value = true },
                 onFailure = { e ->
-                    snackbarController.showSnackbar(e.message ?: "Kayıt sırasında bir hata oluştu.")
+                    snackbarController.showSnackbar(e.toUiText(R.string.error_register_failed))
                 }
             )
             _isLoading.value = false

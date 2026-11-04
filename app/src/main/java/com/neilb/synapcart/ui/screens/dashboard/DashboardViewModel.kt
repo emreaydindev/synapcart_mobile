@@ -2,7 +2,13 @@ package com.neilb.synapcart.ui.screens.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neilb.synapcart.R
 import com.neilb.synapcart.data.model.AgentStreamEvent
+import com.neilb.synapcart.data.remote.ApiException
+import com.neilb.synapcart.data.remote.toUiText
+import com.neilb.synapcart.util.UiText
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import com.neilb.synapcart.data.model.ProductDTO
 import com.neilb.synapcart.data.model.SessionResponse
 import com.neilb.synapcart.data.repository.ChatStreamRepository
@@ -30,9 +36,13 @@ import javax.inject.Inject
 
 data class ChatSessionItem(
     val id: Int,
-    val title: String,
+    /** Null until the server names the chat; the UI shows a placeholder. */
+    val title: String?,
     val createdAt: Long?
 )
+
+/** Free-plan usage, when the backend reports it (premium backend, roadmap Phase 2). */
+data class QuotaState(val used: Int, val limit: Int)
 
 /** What the agent is doing for the in-flight message. */
 enum class AgentPhase { SENDING, ROUTING, SEARCHING, THINKING }
@@ -84,6 +94,16 @@ class DashboardViewModel @Inject constructor(
 
     val isProcessing: Boolean get() = _agentPhase.value != null
 
+    val isPremium: StateFlow<Boolean> = sessionManager.isPremium
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    private val _quota = MutableStateFlow<QuotaState?>(null)
+    val quota: StateFlow<QuotaState?> = _quota.asStateFlow()
+
+    /** Fires when the server refuses a message for quota reasons (HTTP 402). */
+    private val _paywallEvents = Channel<Unit>(Channel.CONFLATED)
+    val paywallEvents = _paywallEvents.receiveAsFlow()
+
     private var streamJob: Job? = null
     private var loadJob: Job? = null
 
@@ -100,6 +120,9 @@ class DashboardViewModel @Inject constructor(
             // globally (session cleared, user sent to login).
             userUseCases.getUser().onSuccess { profile ->
                 profile.fullName?.takeIf { it.isNotBlank() }?.let { _userName.value = it }
+                _quota.value = if (!profile.isPremium && profile.usageToday != null && profile.dailyLimit != null) {
+                    QuotaState(profile.usageToday, profile.dailyLimit)
+                } else null
             }
         }
     }
@@ -108,7 +131,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             chatUseCases.getSessions().fold(
                 onSuccess = { list -> _sessions.value = list.map { it.toItem() } },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Geçmiş yüklenemedi.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_history_load)) }
             )
         }
     }
@@ -128,7 +151,7 @@ class DashboardViewModel @Inject constructor(
             _isLoadingMessages.value = true
             chatUseCases.getMessages(session.id).fold(
                 onSuccess = { _messages.value = it },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Mesajlar yüklenemedi.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_messages_load)) }
             )
             _isLoadingMessages.value = false
         }
@@ -157,7 +180,7 @@ class DashboardViewModel @Inject constructor(
                 },
                 onFailure = { e ->
                     _agentPhase.value = null
-                    snackbarController.showSnackbar(e.message ?: "Sohbet başlatılamadı.")
+                    onSendFailure(e, R.string.error_chat_start)
                     return@launch
                 }
             )
@@ -167,7 +190,7 @@ class DashboardViewModel @Inject constructor(
 
     private suspend fun streamAnswer(sessionId: Int, text: String) {
         chatStreamRepository.streamAgent(sessionId, text)
-            .catch { e -> snackbarController.showSnackbar(e.message ?: "İletişim hatası.") }
+            .catch { e -> onSendFailure(e, R.string.error_generic) }
             .onCompletion {
                 _agentPhase.value = null
                 _pendingProducts.value = emptyList()
@@ -188,9 +211,12 @@ class DashboardViewModel @Inject constructor(
                 if (answer.isNotBlank() || products.isNotEmpty()) {
                     _messages.update { it + ChatMessage(text = answer, isUser = false, products = products) }
                 }
+                _quota.update { q -> q?.copy(used = q.used + 1) }
             }
             AgentStreamEvent.ERROR -> {
-                snackbarController.showSnackbar(event.analysis ?: "Bir hata oluştu. Lütfen tekrar deneyin.")
+                snackbarController.showSnackbar(
+                    event.analysis?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_try_again)
+                )
             }
         }
     }
@@ -199,9 +225,9 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             favoritesUseCases.toggle(product).fold(
                 onSuccess = { added ->
-                    snackbarController.showSnackbar(if (added) "Favorilere eklendi." else "Favorilerden çıkarıldı.")
+                    snackbarController.showSnackbar(if (added) R.string.favorite_added else R.string.favorite_removed)
                 },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Favori güncellenemedi.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_favorite_update)) }
             )
         }
     }
@@ -215,7 +241,7 @@ class DashboardViewModel @Inject constructor(
                     _sessions.update { list -> list.map { if (it.id == sessionId) updated.toItem() else it } }
                     if (_currentSessionId.value == sessionId) _currentChatTitle.value = updated.title
                 },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Sohbet yeniden adlandırılamadı.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_chat_rename)) }
             )
         }
     }
@@ -227,9 +253,17 @@ class DashboardViewModel @Inject constructor(
                     _sessions.update { list -> list.filterNot { it.id == sessionId } }
                     if (_currentSessionId.value == sessionId) resetChat()
                 },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Sohbet silinemedi.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_chat_delete)) }
             )
         }
+    }
+
+    private suspend fun onSendFailure(e: Throwable, fallback: Int) {
+        if (e is ApiException.QuotaExceeded) {
+            _quota.update { q -> q?.copy(used = q.limit) }
+            _paywallEvents.send(Unit)
+        }
+        snackbarController.showSnackbar(e.toUiText(fallback))
     }
 
     fun resetChat() {
@@ -258,7 +292,7 @@ class DashboardViewModel @Inject constructor(
 
     private fun SessionResponse.toItem() = ChatSessionItem(
         id = id,
-        title = title?.takeIf { it.isNotBlank() } ?: "Sohbet #$id",
+        title = title?.takeIf { it.isNotBlank() },
         createdAt = parseServerTimestamp(createdAt)
     )
 }

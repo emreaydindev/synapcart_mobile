@@ -40,7 +40,7 @@ class FavoritesRepositoryImpl(
 
     override suspend fun add(product: ProductDTO): Result<FavoriteResponse> {
         val link = product.link
-        if (link.isNullOrBlank()) return Result.failure(ApiException.Http(400, "Bu ürünün bağlantısı yok."))
+        if (link.isNullOrBlank()) return Result.failure(ApiException.Validation(com.neilb.synapcart.R.string.error_product_no_link))
         val request = AddFavoriteRequest(
             productTitle = product.title?.takeIf { it.isNotBlank() } ?: link,
             productLink = link,
@@ -65,7 +65,7 @@ class FavoritesRepositoryImpl(
 
     override suspend fun toggle(product: ProductDTO): Result<Boolean> {
         val link = product.link
-        if (link.isNullOrBlank()) return Result.failure(ApiException.Http(400, "Bu ürünün bağlantısı yok."))
+        if (link.isNullOrBlank()) return Result.failure(ApiException.Validation(com.neilb.synapcart.R.string.error_product_no_link))
         return if (link in favoriteLinks.value) {
             val before = _favorites.value
             _favorites.update { list -> list.filterNot { it.productLink == link } }

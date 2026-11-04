@@ -2,7 +2,10 @@ package com.neilb.synapcart.ui.screens.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.remote.toUiText
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
+import com.neilb.synapcart.util.AppLocale
 import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +32,13 @@ class ProfileViewModel @Inject constructor(
     private val _currency = MutableStateFlow("TRY")
     val currency: StateFlow<String> = _currency.asStateFlow()
 
+    private val _isPremium = MutableStateFlow(false)
+    val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
+
+    /** Raw server timestamp of the premium expiry, if any. */
+    private val _planExpiresAt = MutableStateFlow<String?>(null)
+    val planExpiresAt: StateFlow<String?> = _planExpiresAt.asStateFlow()
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -50,10 +60,12 @@ class ProfileViewModel @Inject constructor(
                 onSuccess = { profile ->
                     _fullName.value = profile.fullName.orEmpty()
                     _email.value = profile.email
-                    _language.value = profile.language ?: "tr"
+                    _language.value = AppLocale.normalize(profile.language ?: AppLocale.current())
                     _currency.value = profile.currency ?: "TRY"
+                    _isPremium.value = profile.isPremium
+                    _planExpiresAt.value = profile.planExpiresAt
                 },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Profil bilgileri alınamadı.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_profile_load)) }
             )
             _isLoading.value = false
         }
@@ -72,8 +84,8 @@ class ProfileViewModel @Inject constructor(
                 language = _language.value,
                 currency = _currency.value
             ).fold(
-                onSuccess = { snackbarController.showSnackbar("Profil başarıyla güncellendi.") },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Güncelleme başarısız oldu.") }
+                onSuccess = { snackbarController.showSnackbar(R.string.profile_saved) },
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_profile_update)) }
             )
             _isLoading.value = false
         }
@@ -86,9 +98,9 @@ class ProfileViewModel @Inject constructor(
             userUseCases.changePassword(currentPassword, newPassword).fold(
                 onSuccess = {
                     _passwordChanged.value = true
-                    snackbarController.showSnackbar("Şifreniz güncellendi. Diğer cihazlardaki oturumlar kapatıldı.")
+                    snackbarController.showSnackbar(R.string.password_changed)
                 },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Şifre güncellenemedi.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_password_update_failed)) }
             )
             _isLoading.value = false
         }
@@ -102,16 +114,16 @@ class ProfileViewModel @Inject constructor(
         if (_isLoading.value) return
         viewModelScope.launch {
             if (password.isBlank()) {
-                snackbarController.showSnackbar("Hesabınızı silmek için şifrenizi girin.")
+                snackbarController.showSnackbar(R.string.error_delete_needs_password)
                 return@launch
             }
             _isLoading.value = true
             userUseCases.deleteAccount(password).fold(
                 onSuccess = {
-                    snackbarController.showSnackbar("Hesabınız kalıcı olarak silindi.")
+                    snackbarController.showSnackbar(R.string.account_deleted)
                     _isAccountDeleted.value = true
                 },
-                onFailure = { e -> snackbarController.showSnackbar(e.message ?: "Hesap silinirken bir hata oluştu.") }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_account_delete)) }
             )
             _isLoading.value = false
         }

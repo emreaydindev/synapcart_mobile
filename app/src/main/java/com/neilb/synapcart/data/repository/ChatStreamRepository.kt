@@ -71,7 +71,7 @@ class ChatStreamRepositoryImpl(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                close(ApiException.Http(-1, ApiException.GENERIC_MESSAGE))
+                close(ApiException.Http(-1))
             }
         }
 

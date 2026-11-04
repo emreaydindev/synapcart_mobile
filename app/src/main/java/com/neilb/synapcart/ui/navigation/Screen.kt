@@ -19,6 +19,10 @@ sealed class Screen(val route: String) {
 
     /** The product itself is handed over through SelectedProductStore. */
     object ProductDetails : Screen("product_details_screen")
+    /** Products to compare are handed over through SelectedProductStore.compareProducts. */
+    object Compare : Screen("compare_screen")
+    object Paywall : Screen("paywall_screen")
+
     object ProductWeb : Screen("product_web_screen?url={url}") {
         fun passUrl(url: String) = "product_web_screen?url=${Uri.encode(url)}"
     }

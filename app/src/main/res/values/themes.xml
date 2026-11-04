@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.SynapCart" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- App window theme: dark-only, matches the Compose background so there is no white flash. -->
+    <style name="Theme.SynapCart" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/synap_bg</item>
+        <item name="android:colorBackground">@color/synap_bg</item>
+        <item name="colorPrimary">@color/synap_primary</item>
+        <item name="colorAccent">@color/synap_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- Launch theme (core-splashscreen): the cart mark on the brand background. -->
+    <style name="Theme.SynapCart.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/synap_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="postSplashScreenTheme">@style/Theme.SynapCart</item>
+    </style>
 </resources>

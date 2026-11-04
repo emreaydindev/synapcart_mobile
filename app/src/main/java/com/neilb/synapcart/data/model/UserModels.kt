@@ -13,8 +13,19 @@ data class UserProfile(
     @SerializedName("full_name") val fullName: String?,
     @SerializedName("email") val email: String,
     @SerializedName("language") val language: String?,
-    @SerializedName("currency") val currency: String?
-)
+    @SerializedName("currency") val currency: String?,
+    // Plan fields arrive with the premium backend (roadmap Phase 2); null until then.
+    @SerializedName("plan") val plan: String? = null,
+    @SerializedName("plan_expires_at") val planExpiresAt: String? = null,
+    @SerializedName("usage_today") val usageToday: Int? = null,
+    @SerializedName("daily_limit") val dailyLimit: Int? = null
+) {
+    val isPremium: Boolean get() = plan == PLAN_PREMIUM
+
+    companion object {
+        const val PLAN_PREMIUM = "premium"
+    }
+}
 
 data class PasswordChangeRequest(
     @SerializedName("current_password") val currentPassword: String,

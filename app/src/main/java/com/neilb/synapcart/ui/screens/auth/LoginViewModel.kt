@@ -1,5 +1,7 @@
 package com.neilb.synapcart.ui.screens.auth
 
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.remote.toUiText
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.domain.use_case.auth.AuthUseCases
@@ -41,7 +43,7 @@ class LoginViewModel @Inject constructor(
         if (_isLoading.value) return
         viewModelScope.launch {
             if (_email.value.isBlank() || _password.value.isBlank()) {
-                snackbarController.showSnackbar("Lütfen e-posta ve şifrenizi girin.")
+                snackbarController.showSnackbar(R.string.error_email_password_empty)
                 return@launch
             }
 
@@ -54,7 +56,7 @@ class LoginViewModel @Inject constructor(
                     _isLoginSuccess.value = true
                 },
                 onFailure = { exception ->
-                    snackbarController.showSnackbar(exception.message ?: "Giriş başarısız oldu. Lütfen tekrar deneyin.")
+                    snackbarController.showSnackbar(exception.toUiText(R.string.error_login_failed))
                 }
             )
 
