@@ -53,3 +53,14 @@ kotlin {
         }
     }
 }
+
+// Print assertion messages and causes in the console (CI only shows the console for native tests).
+tasks.withType<AbstractTestTask>().configureEach {
+    testLogging {
+        events(org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED)
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+}

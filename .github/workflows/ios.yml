@@ -28,6 +28,14 @@ jobs:
         run: ./gradlew :shared:testAndroidHostTest
       - name: Shared module tests (iOS simulator)
         run: ./gradlew :shared:iosSimulatorArm64Test
+      - name: Upload shared test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-test-reports
+          path: |
+            shared/build/reports/tests/
+            shared/build/test-results/
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
