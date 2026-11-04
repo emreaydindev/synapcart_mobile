@@ -1,149 +1,152 @@
 package com.neilb.synapcart.ui.screens.favorites
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.automirrored.outlined.CompareArrows
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.R
 import com.neilb.synapcart.data.model.FavoriteResponse
-import com.neilb.synapcart.ui.screens.dashboard.DarkBg
-import com.neilb.synapcart.ui.screens.dashboard.NeonAccent
-import com.neilb.synapcart.ui.screens.dashboard.SurfaceDark
+import com.neilb.synapcart.ui.components.EmptyState
+import com.neilb.synapcart.ui.components.ErrorState
+import com.neilb.synapcart.ui.components.PrimaryButton
+import com.neilb.synapcart.ui.components.ProductCard
+import com.neilb.synapcart.ui.components.ProductCardSkeleton
+import com.neilb.synapcart.ui.components.SynapScaffold
+import com.neilb.synapcart.ui.components.SynapTopBar
+import com.neilb.synapcart.ui.screens.favorites.FavoritesViewModel.Companion.toProduct
+import com.neilb.synapcart.ui.theme.Dimens
+import com.neilb.synapcart.util.asString
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesScreen(
     viewModel: FavoritesViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onOpenProduct: (favorite: FavoriteResponse, all: List<FavoriteResponse>) -> Unit,
+    onCompare: (List<FavoriteResponse>) -> Unit,
+    onOpenPaywall: () -> Unit
 ) {
-    val favorites by viewModel.favorites.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val favorites by viewModel.favorites.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val loadError by viewModel.loadError.collectAsStateWithLifecycle()
+    val selection by viewModel.selection.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
+    val selecting = selection != null
 
-    Scaffold(
-        containerColor = DarkBg,
+    SynapScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Favorilerim", color = Color.White, fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Color.White)
+            if (selecting) {
+                SynapTopBar(
+                    title = pluralStringResource(R.plurals.compare_selected, selection!!.size, selection!!.size),
+                    navigationIcon = {
+                        IconButton(onClick = viewModel::cancelSelection) {
+                            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_cancel))
+                        }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+                )
+            } else {
+                SynapTopBar(
+                    title = stringResource(R.string.favorites_title),
+                    onBack = onNavigateBack,
+                    actions = {
+                        if (favorites.size >= 2) {
+                            TextButton(onClick = { if (isPremium) viewModel.startSelection() else onOpenPaywall() }) {
+                                Icon(Icons.AutoMirrored.Outlined.CompareArrows, contentDescription = null)
+                                Text(stringResource(R.string.product_compare), modifier = Modifier.padding(start = Dimens.SpaceXs))
+                            }
+                        }
+                    }
+                )
+            }
+        },
+        bottomBar = {
+            if (selecting) {
+                Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
+                    PrimaryButton(
+                        text = stringResource(R.string.compare_action, selection!!.size),
+                        onClick = {
+                            onCompare(viewModel.selectedFavorites())
+                            viewModel.cancelSelection()
+                        },
+                        enabled = selection!!.size >= 2,
+                        leadingIcon = Icons.AutoMirrored.Outlined.CompareArrows,
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceM)
+                    )
+                }
+            }
         }
     ) { innerPadding ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = NeonAccent)
-            }
-        } else if (favorites.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                Text("Henüz favoriye eklenmiş bir ürün yok.", color = Color.White.copy(alpha = 0.5f))
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(favorites, key = { it.id }) { item ->
-                    FavoriteCard(
-                        item = item,
-                        onDeleteClick = { viewModel.removeFavorite(item.id) }
-                    )
+        Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.TopCenter) {
+            val error = loadError
+            when {
+                isLoading && favorites.isEmpty() -> FavoritesGrid {
+                    items(4) { ProductCardSkeleton() }
+                }
+                favorites.isEmpty() && error != null -> ErrorState(
+                    message = error.asString(),
+                    onRetry = viewModel::refresh,
+                    modifier = Modifier.padding(top = Dimens.SpaceXxxl)
+                )
+                favorites.isEmpty() -> EmptyState(
+                    icon = Icons.Outlined.FavoriteBorder,
+                    title = stringResource(R.string.favorites_empty_title),
+                    message = stringResource(R.string.favorites_empty_message),
+                    modifier = Modifier.padding(top = Dimens.SpaceXxxl)
+                )
+                else -> FavoritesGrid {
+                    items(favorites, key = { it.id }) { item ->
+                        val isSelected = selection?.contains(item.id)
+                        ProductCard(
+                            product = item.toProduct(),
+                            currency = item.currency ?: "TRY",
+                            isFavorite = true,
+                            onClick = {
+                                if (selecting) viewModel.toggleSelected(item.id) else onOpenProduct(item, favorites)
+                            },
+                            onToggleFavorite = { viewModel.removeFavorite(item) },
+                            selected = isSelected,
+                            hasAlert = item.targetPrice != null
+                        )
+                    }
                 }
             }
         }
     }
 }
+
 @Composable
-fun FavoriteCard(item: FavoriteResponse, onDeleteClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = SurfaceDark
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(70.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.White.copy(alpha = 0.05f)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (item.thumbnailUrl != null) {
-                    AsyncImage(
-                        model = item.thumbnailUrl,
-                        contentDescription = item.productTitle ?: "",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.3f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.productTitle ?: "Bilinmeyen Ürün",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = item.price ?: "-",
-                        color = NeonAccent,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "• ${item.source ?: "Bilinmiyor"}",
-                        color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 12.sp
-                    )
-                }
-            }
-
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Sil",
-                    tint = Color(0xFFEF4444).copy(alpha = 0.8f)
-                )
-            }
-        }
-    }
+private fun FavoritesGrid(content: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 160.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+        content = content
+    )
 }

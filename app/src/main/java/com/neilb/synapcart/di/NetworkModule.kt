@@ -1,12 +1,14 @@
 package com.neilb.synapcart.di
 
 import android.content.Context
+import com.neilb.synapcart.BuildConfig
 import com.neilb.synapcart.data.remote.AuthApiService
+import com.neilb.synapcart.data.remote.BillingApiService
 import com.neilb.synapcart.data.remote.FavoritesApiService
 import com.neilb.synapcart.data.remote.SynapCartApiService
 import com.neilb.synapcart.data.remote.UserApiService
 import com.neilb.synapcart.data.remote.interceptor.AuthInterceptor
-import com.neilb.synapcart.util.Constants
+import com.neilb.synapcart.util.SessionEvents
 import com.neilb.synapcart.util.SessionManager
 import dagger.Module
 import dagger.Provides
@@ -32,28 +34,40 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAuthInterceptor(sessionManager: SessionManager): AuthInterceptor {
-        return AuthInterceptor(sessionManager)
+    fun provideSessionEvents(): SessionEvents = SessionEvents()
+
+    @Provides
+    @Singleton
+    fun provideAuthInterceptor(sessionManager: SessionManager, sessionEvents: SessionEvents): AuthInterceptor {
+        return AuthInterceptor(sessionManager, sessionEvents)
     }
 
     @Provides
     @Singleton
     fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
-            .addInterceptor(logging)
-            .connectTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            // The agent (and Render cold starts) can take a while before the first byte.
             .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .build()
+            .writeTimeout(30, TimeUnit.SECONDS)
+        if (BuildConfig.DEBUG) {
+            // Debug builds only: never log request bodies (passwords) or tokens in release.
+            builder.addInterceptor(
+                HttpLoggingInterceptor().apply {
+                    level = HttpLoggingInterceptor.Level.BODY
+                    redactHeader("Authorization")
+                }
+            )
+        }
+        return builder.build()
     }
 
     @Provides
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl(Constants.BASE_URL)
+            .baseUrl(BuildConfig.BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .client(okHttpClient)
             .build()
@@ -79,8 +93,13 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideBillingApiService(retrofit: Retrofit): BillingApiService {
+        return retrofit.create(BillingApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun provideFavoritesApiService(retrofit: Retrofit): FavoritesApiService {
         return retrofit.create(FavoritesApiService::class.java)
     }
-
 }

@@ -1,46 +1,46 @@
 package com.neilb.synapcart.ui.screens.auth
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.neilb.synapcart.ui.components.PrimaryButton
-import com.neilb.synapcart.ui.components.SynapCartTextField
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.neilb.synapcart.R
-import com.neilb.synapcart.ui.theme.SynapDarkBg
-import com.neilb.synapcart.ui.theme.SynapForeground
+import com.neilb.synapcart.ui.components.BrandHeader
+import com.neilb.synapcart.ui.components.PrimaryButton
+import com.neilb.synapcart.ui.components.SynapTextField
+import com.neilb.synapcart.ui.theme.Dimens
 
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
-    onNavigateToForgotPassword: () -> Unit,
-    onContinueAsGuest: () -> Unit
+    onNavigateToForgotPassword: () -> Unit
 ) {
-    val email by viewModel.email.collectAsState()
-    val password by viewModel.password.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isLoginSuccess by viewModel.isLoginSuccess.collectAsState()
+    val email by viewModel.email.collectAsStateWithLifecycle()
+    val password by viewModel.password.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isLoginSuccess by viewModel.isLoginSuccess.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(isLoginSuccess) {
         if (isLoginSuccess) {
@@ -49,145 +49,46 @@ fun LoginScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SynapDarkBg)
-            .padding(horizontal = 24.dp)
-            .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Spacer(modifier = Modifier.height(48.dp))
+    AuthLayout {
+        Spacer(Modifier.height(Dimens.SpaceXxl))
+        BrandHeader()
+        Spacer(Modifier.height(Dimens.SpaceXl))
 
-        Image(
-            painter = painterResource(id = R.mipmap.ic_launcher_foreground),
-            contentDescription = "SynapCart Marka Logosu",
-            modifier = Modifier.size(130.dp)
-        )
-
-        Text(
-            text = "SynapCart",
-            fontSize = 42.sp,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = FontFamily.SansSerif,
-            color = SynapForeground,
-            letterSpacing = 4.sp
-        )
-
-        Text(
-            text = "Yapay Zeka Destekli Alışveriş Ajanı",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Normal,
-            fontFamily = FontFamily.SansSerif,
-            color = Color.White.copy(alpha = 0.35f),
-            modifier = Modifier.padding(top = 8.dp, bottom = 40.dp),
-            letterSpacing = 1.5.sp
-        )
-
-        SynapCartTextField(
+        SynapTextField(
             value = email,
             onValueChange = viewModel::onEmailChange,
-            label = "E-posta",
-            leadingIcon = Icons.Default.Email,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            modifier = Modifier.padding(bottom = 16.dp)
+            label = stringResource(R.string.field_email),
+            leadingIcon = Icons.Outlined.Email,
+            keyboardType = KeyboardType.Email
         )
-
-        SynapCartTextField(
+        SynapTextField(
             value = password,
             onValueChange = viewModel::onPasswordChange,
-            label = "Şifre",
-            leadingIcon = Icons.Default.Lock,
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.padding(bottom = 8.dp)
+            label = stringResource(R.string.field_password),
+            leadingIcon = Icons.Outlined.Lock,
+            isPassword = true,
+            imeAction = ImeAction.Done,
+            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus(); viewModel.login() })
         )
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             TextButton(onClick = onNavigateToForgotPassword) {
-                Text(
-                    text = "Şifremi Unuttum",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp
-                )
+                Text(stringResource(R.string.login_forgot_password), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         PrimaryButton(
-            text = "Giriş Yap",
-            onClick = { viewModel.login() },
+            text = stringResource(R.string.login_submit),
+            onClick = { focusManager.clearFocus(); viewModel.login() },
             isLoading = isLoading
         )
-
-        /*
-        //TODO: guest sessions will be added later
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(alpha = 0.1f))
-            Text(
-                text = "VEYA",
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = Color.White.copy(alpha = 0.4f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(alpha = 0.1f))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedButton(
-            onClick = onContinueAsGuest,
-            modifier = Modifier
-                .getModifierOrEmpty()
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = SynapForeground),
-            border = BorderStroke(1.5.dp, SynapForeground.copy(alpha = 0.8f))
-        ) {
-            Text(
-                text = "Misafir Olarak Devam Et",
-                color = SynapForeground,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
-            )
-        }
-         */
-
-        Spacer(modifier = Modifier.height(32.dp))
-
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 24.dp)
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = "Hesabın yok mu? ",
-                color = Color.White.copy(alpha = 0.5f),
-                fontSize = 15.sp
-            )
-            TextButton(
-                onClick = onNavigateToRegister,
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    text = "Kayıt Ol",
-                    color = SynapForeground,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
+            Text(stringResource(R.string.login_no_account), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onNavigateToRegister) {
+                Text(stringResource(R.string.login_go_register), style = MaterialTheme.typography.labelLarge)
             }
         }
     }
 }
-
-private fun Modifier.getModifierOrEmpty(): Modifier = this

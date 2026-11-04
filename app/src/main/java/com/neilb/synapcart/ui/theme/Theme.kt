@@ -1,61 +1,59 @@
 package com.neilb.synapcart.ui.theme
 
-import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = SynapForeground,
-    secondary = AccentMint,
-    tertiary = PrimaryCyanLight,
-    background = SynapDarkBg,
-    surface = DeepNavy_800,
-    onPrimary = DeepNavy_900,
-    onBackground = NearWhite_100,
-    onSurface = NearWhite_100
+/** Every Material role filled from [SynapColors]. SynapCart is dark-only. */
+private val SynapColorScheme = darkColorScheme(
+    primary = SynapColors.Primary,
+    onPrimary = SynapColors.OnPrimary,
+    primaryContainer = SynapColors.PrimaryContainer,
+    onPrimaryContainer = SynapColors.OnPrimaryContainer,
+    inversePrimary = SynapColors.OnPrimary,
+    secondary = SynapColors.Secondary,
+    onSecondary = SynapColors.OnSecondary,
+    secondaryContainer = SynapColors.SecondaryContainer,
+    onSecondaryContainer = SynapColors.OnSecondaryContainer,
+    tertiary = SynapColors.PremiumGold,
+    onTertiary = SynapColors.OnPremiumGold,
+    tertiaryContainer = SynapColors.SurfaceHigh,
+    onTertiaryContainer = SynapColors.PremiumGold,
+    background = SynapColors.Bg,
+    onBackground = SynapColors.Text,
+    surface = SynapColors.Surface,
+    onSurface = SynapColors.Text,
+    surfaceVariant = SynapColors.SurfaceHigh,
+    onSurfaceVariant = SynapColors.TextMuted,
+    surfaceTint = SynapColors.Primary,
+    inverseSurface = SynapColors.Text,
+    inverseOnSurface = SynapColors.Bg,
+    error = SynapColors.Error,
+    onError = SynapColors.OnError,
+    errorContainer = SynapColors.ErrorContainer,
+    onErrorContainer = SynapColors.OnErrorContainer,
+    outline = SynapColors.OutlineStrong,
+    outlineVariant = SynapColors.Outline,
+    scrim = SynapColors.Scrim,
+    surfaceBright = SynapColors.SurfaceHighest,
+    surfaceDim = SynapColors.Bg,
+    surfaceContainerLowest = SynapColors.Bg,
+    surfaceContainerLow = SynapColors.Surface,
+    surfaceContainer = SynapColors.Surface,
+    surfaceContainerHigh = SynapColors.SurfaceHigh,
+    surfaceContainerHighest = SynapColors.SurfaceHighest
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = SynapForeground,
-    secondary = AccentMintDark,
-    tertiary = PrimaryCyanDark,
-    background = OffWhite_50,
-    surface = White,
-    onPrimary = White,
-    onBackground = NearBlack_900,
-    onSurface = NearBlack_900
-)
-
+/**
+ * App theme. System bar colors are not set here: the activity is edge-to-edge with a dark
+ * window theme (see themes.xml), so bars are transparent with light icons.
+ */
 @Composable
-fun SynapCartTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-        }
-    }
-
+fun SynapCartTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = SynapColorScheme,
         typography = Typography,
+        shapes = Shapes,
         content = content
     )
 }

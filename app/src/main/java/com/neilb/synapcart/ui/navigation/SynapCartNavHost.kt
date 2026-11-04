@@ -1,11 +1,7 @@
 package com.neilb.synapcart.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -13,7 +9,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.google.gson.Gson
 import com.neilb.synapcart.data.model.ProductDTO
 import com.neilb.synapcart.ui.screens.auth.ForgotPasswordScreen
 import com.neilb.synapcart.ui.screens.auth.ForgotPasswordViewModel
@@ -31,17 +26,76 @@ import com.neilb.synapcart.ui.screens.splash.SplashScreen
 import com.neilb.synapcart.ui.screens.splash.SplashViewModel
 import com.neilb.synapcart.ui.screens.favorites.FavoritesScreen
 import com.neilb.synapcart.ui.screens.favorites.FavoritesViewModel
+import com.neilb.synapcart.ui.screens.favorites.FavoritesViewModel.Companion.toProduct
+import com.neilb.synapcart.util.SelectedProductStore
+import com.neilb.synapcart.util.SessionEvents
 import com.neilb.synapcart.ui.screens.product.ProductDetailsScreen
 import com.neilb.synapcart.ui.screens.product.ProductDetailsViewModel
 import com.neilb.synapcart.ui.screens.product.ProductWebScreen
 import com.neilb.synapcart.ui.screens.profile.ProfileScreen
 import com.neilb.synapcart.ui.screens.profile.ProfileViewModel
+import com.neilb.synapcart.ui.screens.compare.CompareScreen
+import com.neilb.synapcart.ui.screens.compare.CompareViewModel
+import com.neilb.synapcart.ui.screens.paywall.PaywallScreen
+import com.neilb.synapcart.ui.screens.paywall.PaywallViewModel
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun SynapCartNavHost(
     navController: NavHostController,
-    startDestination: String = Screen.Splash.route
+    sessionEvents: SessionEvents,
+    selectedProductStore: SelectedProductStore,
+    onStartDestinationResolved: () -> Unit = {},
+    startDestination: String = Screen.Splash.route,
+    /** A product link from a tapped price alert; opened once the user is signed in. */
+    pendingProductLink: String? = null,
+    resolveProduct: suspend (String) -> ProductDTO = { ProductDTO(null, null, null, it, null) },
+    onPendingProductHandled: () -> Unit = {}
 ) {
+    // The token was rejected (expired or revoked): the session is already cleared, go to login.
+    LaunchedEffect(sessionEvents) {
+        sessionEvents.expired.collect {
+            val current = navController.currentDestination?.route
+            val onAuthScreen = current == Screen.Login.route || current == Screen.Register.route ||
+                current == Screen.ForgotPassword.route || current == Screen.ResetPassword.route ||
+                current == Screen.Splash.route
+            if (!onAuthScreen) {
+                navController.navigate(Screen.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+
+    /** [siblings]: the other results shown with it (same answer / favorites), for Compare. */
+    fun openProduct(product: ProductDTO, siblings: List<ProductDTO> = emptyList()) {
+        selectedProductStore.product = product
+        selectedProductStore.siblings = siblings
+        navController.navigate(Screen.ProductDetails.route)
+    }
+
+    fun openCompare(products: List<ProductDTO>) {
+        selectedProductStore.compareProducts = products
+        navController.navigate(Screen.Compare.route)
+    }
+
+    fun openPaywall() {
+        navController.navigate(Screen.Paywall.route) { launchSingleTop = true }
+    }
+
+    // Price-alert tap: wait until the signed-in part of the app is showing, then open the product.
+    LaunchedEffect(pendingProductLink) {
+        val link = pendingProductLink ?: return@LaunchedEffect
+        navController.currentBackStackEntryFlow.first { entry ->
+            entry.destination.route !in setOf(
+                Screen.Splash.route, Screen.Login.route, Screen.Register.route,
+                Screen.ForgotPassword.route, Screen.ResetPassword.route, Screen.Onboarding.route
+            )
+        }
+        openProduct(resolveProduct(link))
+        onPendingProductHandled()
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -51,6 +105,7 @@ fun SynapCartNavHost(
 
             SplashScreen(
                 viewModel = splashViewModel,
+                onDestinationResolved = onStartDestinationResolved,
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
@@ -84,11 +139,6 @@ fun SynapCartNavHost(
                 },
                 onNavigateToForgotPassword = {
                     navController.navigate(Screen.ForgotPassword.route)
-                },
-                onContinueAsGuest = {
-                    navController.navigate(Screen.Dashboard.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
-                    }
                 }
             )
         }
@@ -160,6 +210,7 @@ fun SynapCartNavHost(
             ProfileScreen(
                 viewModel = profileViewModel,
                 onNavigateBack = { navController.popBackStack() },
+                onOpenPaywall = ::openPaywall,
                 onAccountDeleted = {
                     navController.navigate(Screen.Splash.route) {
                         popUpTo(0) { inclusive = true }
@@ -172,7 +223,10 @@ fun SynapCartNavHost(
             val favoritesViewModel: FavoritesViewModel = hiltViewModel()
             FavoritesScreen(
                 viewModel = favoritesViewModel,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onOpenProduct = { favorite, all -> openProduct(favorite.toProduct(), all.map { it.toProduct() }) },
+                onCompare = { favorites -> openCompare(favorites.map { it.toProduct() }) },
+                onOpenPaywall = ::openPaywall
             )
         }
 
@@ -187,29 +241,38 @@ fun SynapCartNavHost(
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onNavigateToProduct = { product ->
-                    val json = Gson().toJson(product)
-                    navController.navigate(Screen.ProductDetails.passProduct(json))
-                }
+                onNavigateToProduct = { product, siblings -> openProduct(product, siblings) },
+                onOpenPaywall = ::openPaywall
             )
         }
 
-        composable(
-            route = Screen.ProductDetails.route,
-            arguments = listOf(navArgument("productJson") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val productJson = backStackEntry.arguments?.getString("productJson") ?: ""
-            val product = Gson().fromJson(productJson, ProductDTO::class.java)
+        composable(route = Screen.ProductDetails.route) {
             val viewModel: ProductDetailsViewModel = hiltViewModel()
 
             ProductDetailsScreen(
-                product = product,
                 viewModel = viewModel,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToWeb = { link ->
                     navController.navigate(Screen.ProductWeb.passUrl(link))
-                }
+                },
+                onCompare = { products -> openCompare(products) },
+                onOpenPaywall = ::openPaywall
             )
+        }
+
+        composable(route = Screen.Compare.route) {
+            val viewModel: CompareViewModel = hiltViewModel()
+            CompareScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onOpenProduct = { product -> openProduct(product) },
+                onOpenPaywall = ::openPaywall
+            )
+        }
+
+        composable(route = Screen.Paywall.route) {
+            val viewModel: PaywallViewModel = hiltViewModel()
+            PaywallScreen(viewModel = viewModel, onNavigateBack = { navController.popBackStack() })
         }
 
         composable(
@@ -222,12 +285,5 @@ fun SynapCartNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-    }
-}
-
-@Composable
-fun PlaceholderScreen(title: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text = title, color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground)
     }
 }

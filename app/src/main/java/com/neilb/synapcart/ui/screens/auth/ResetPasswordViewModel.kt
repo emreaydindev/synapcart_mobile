@@ -1,5 +1,7 @@
 package com.neilb.synapcart.ui.screens.auth
 
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.remote.toUiText
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -38,16 +40,12 @@ class ResetPasswordViewModel @Inject constructor(
 
     fun resetPassword() {
         viewModelScope.launch {
-            if (_newPassword.value.length < 6) {
-                snackbarController.showSnackbar("Şifre en az 6 karakter olmalıdır.")
-                return@launch
-            }
             if (_newPassword.value != _confirmPassword.value) {
-                snackbarController.showSnackbar("Şifreler birbiriyle eşleşmelidir.")
+                snackbarController.showSnackbar(R.string.error_passwords_mismatch)
                 return@launch
             }
             if (token.isNullOrBlank()) {
-                snackbarController.showSnackbar("Geçersiz veya süresi dolmuş bağlantı.")
+                snackbarController.showSnackbar(R.string.error_reset_link_invalid)
                 return@launch
             }
             _isLoading.value = true
@@ -57,7 +55,7 @@ class ResetPasswordViewModel @Inject constructor(
             result.fold(
                 onSuccess = { _isSuccess.value = true },
                 onFailure = {
-                    snackbarController.showSnackbar(it.message ?: "Şifre güncellenemedi.")
+                    snackbarController.showSnackbar(it.toUiText(R.string.error_password_update_failed))
                 }
             )
             _isLoading.value = false

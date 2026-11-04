@@ -1,5 +1,7 @@
 package com.neilb.synapcart.ui.screens.auth
 
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.remote.toUiText
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.neilb.synapcart.domain.use_case.auth.AuthUseCases
@@ -33,7 +35,7 @@ class ForgotPasswordViewModel @Inject constructor(
     fun sendResetLink() {
         viewModelScope.launch {
             if (_email.value.isBlank()) {
-                snackbarController.showSnackbar("Lütfen e-posta adresinizi girin.")
+                snackbarController.showSnackbar(R.string.error_email_empty)
                 return@launch
             }
             _isLoading.value = true
@@ -45,7 +47,7 @@ class ForgotPasswordViewModel @Inject constructor(
                     _isSuccess.value = true
                 },
                 onFailure = { exception ->
-                    snackbarController.showSnackbar(exception.message ?: "Şifre sıfırlama bağlantısı gönderilemedi. Lütfen tekrar deneyin.")
+                    snackbarController.showSnackbar(exception.toUiText(R.string.error_reset_link_failed))
                 }
             )
 

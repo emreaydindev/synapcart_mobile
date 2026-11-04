@@ -2,284 +2,228 @@ package com.neilb.synapcart.ui.screens.dashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AddComment
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Laptop
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.Watch
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.R
 import com.neilb.synapcart.data.model.ProductDTO
+import com.neilb.synapcart.ui.components.BrandLockup
+import com.neilb.synapcart.ui.components.brandGradient
+import com.neilb.synapcart.ui.components.ChatBubble
+import com.neilb.synapcart.ui.components.ConfirmDialog
+import com.neilb.synapcart.ui.components.LoadingSkeleton
+import com.neilb.synapcart.ui.components.PlanBadge
+import com.neilb.synapcart.ui.components.ProductCard
+import com.neilb.synapcart.ui.components.ProductCardSkeleton
+import com.neilb.synapcart.ui.components.QuotaBanner
+import com.neilb.synapcart.ui.components.SectionHeader
+import com.neilb.synapcart.ui.components.StatusIndicator
+import com.neilb.synapcart.ui.components.SynapScaffold
+import com.neilb.synapcart.ui.components.SynapTopBar
+import com.neilb.synapcart.ui.components.TextInputDialog
+import com.neilb.synapcart.ui.theme.Dimens
+import com.neilb.synapcart.ui.theme.SynapColors
+import com.neilb.synapcart.util.SessionGroup
+import com.neilb.synapcart.util.sessionGroupOf
 import kotlinx.coroutines.launch
 
-val DarkBg = Color(0xFF051019)
-val NeonAccent = Color(0xFF27D1B4)
-val SurfaceDark = Color(0xFF051828)
+/** The backend caps a chat message at 1000 characters. */
+private const val MAX_MESSAGE_LENGTH = 1000
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToProfile: () -> Unit,
     onNavigateToFavorites: () -> Unit,
     onLogout: () -> Unit,
-    onNavigateToProduct: (ProductDTO) -> Unit
+    onNavigateToProduct: (product: ProductDTO, siblings: List<ProductDTO>) -> Unit,
+    onOpenPaywall: () -> Unit
 ) {
-    val userName by viewModel.userName.collectAsState()
-    val chatHistory by viewModel.chatHistory.collectAsState()
-    val messages by viewModel.messages.collectAsState()
-    val inputText by viewModel.inputText.collectAsState()
-    val currentChatTitle by viewModel.currentChatTitle.collectAsState()
-    val isProcessing by viewModel.isProcessing.collectAsState()
-    val statusText by viewModel.statusText.collectAsState()
-    val products by viewModel.products.collectAsState()
+    val userName by viewModel.userName.collectAsStateWithLifecycle()
+    val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
+    val inputText by viewModel.inputText.collectAsStateWithLifecycle()
+    val currentChatTitle by viewModel.currentChatTitle.collectAsStateWithLifecycle()
+    val currentSessionId by viewModel.currentSessionId.collectAsStateWithLifecycle()
+    val agentPhase by viewModel.agentPhase.collectAsStateWithLifecycle()
+    val pendingProducts by viewModel.pendingProducts.collectAsStateWithLifecycle()
+    val favoriteLinks by viewModel.favoriteLinks.collectAsStateWithLifecycle()
+    val currency by viewModel.currency.collectAsStateWithLifecycle()
+    val isLoadingMessages by viewModel.isLoadingMessages.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
+    val quota by viewModel.quota.collectAsStateWithLifecycle()
+    val isProcessing = agentPhase != null
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
 
-    LaunchedEffect(messages.size, isProcessing, statusText) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+    LaunchedEffect(Unit) {
+        viewModel.paywallEvents.collect { onOpenPaywall() }
+    }
+
+    LaunchedEffect(messages.size, agentPhase, pendingProducts.size) {
+        val count = gridState.layoutInfo.totalItemsCount
+        if (count > 0) gridState.animateScrollToItem(count - 1)
+    }
+
+    fun closeDrawerThen(action: () -> Unit) {
+        scope.launch { drawerState.close() }
+        action()
     }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier.width(300.dp),
-                drawerContainerColor = DarkBg
-            ) {
-                Spacer(modifier = Modifier.height(24.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        viewModel.resetChat()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonAccent),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonAccent.copy(alpha = 0.3f))
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Yeni Sohbet", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "Geçmiş Sohbetler",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                )
-
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(chatHistory) { (id, title) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    scope.launch { drawerState.close() }
-                                    viewModel.loadSession(id, title)
-                                }
-                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Email,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.4f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(14.dp))
-                            Text(
-                                text = title,
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 14.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                HorizontalDivider(color = Color.White.copy(alpha = 0.1f), modifier = Modifier.padding(vertical = 8.dp))
-
-                Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                scope.launch { drawerState.close() }
-                                onNavigateToProfile()
-                            }
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Text("Profil Ayarları", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                scope.launch { drawerState.close() }
-                                onNavigateToFavorites()
-                            }
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.FavoriteBorder, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Text("Favoriler", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                scope.launch { drawerState.close() }
-                                viewModel.logout(onLogoutComplete = onLogout)
-                            }
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red, modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Text("Çıkış Yap", color = Color.Red, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
+            ChatDrawer(
+                sessions = sessions,
+                currentSessionId = currentSessionId,
+                isPremium = isPremium,
+                onNewChat = { closeDrawerThen(viewModel::resetChat) },
+                onSelect = { session -> closeDrawerThen { viewModel.loadSession(session) } },
+                onRename = viewModel::renameSession,
+                onDelete = viewModel::deleteSession,
+                onFavorites = { closeDrawerThen(onNavigateToFavorites) },
+                onProfile = { closeDrawerThen(onNavigateToProfile) },
+                onLogout = { closeDrawerThen { viewModel.logout(onLogoutComplete = onLogout) } },
+                onUpgrade = { closeDrawerThen(onOpenPaywall) }
+            )
         }
     ) {
-        Scaffold(
-            containerColor = DarkBg,
+        SynapScaffold(
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = {
-                        if (currentChatTitle == null) {
-                            Text(
-                                text = "SynapCart",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontFamily = FontFamily.Serif,
-                            )
+                SynapTopBar(
+                    centered = true,
+                    titleContent = {
+                        val title = currentChatTitle
+                        if (title == null) {
+                            BrandLockup()
                         } else {
                             Text(
-                                text = currentChatTitle!!,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.White,
+                                title,
+                                style = MaterialTheme.typography.titleMedium,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(horizontal = 32.dp)
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menü", tint = Color.White)
+                            Icon(Icons.Outlined.Menu, contentDescription = stringResource(R.string.cd_open_menu))
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = Color.Transparent
-                    )
+                    actions = {
+                        if (currentChatTitle != null) {
+                            IconButton(onClick = viewModel::resetChat) {
+                                Icon(Icons.Outlined.AddComment, contentDescription = stringResource(R.string.chat_new))
+                            }
+                        } else {
+                            PlanBadge(
+                                isPremium = isPremium,
+                                modifier = Modifier
+                                    .padding(end = Dimens.SpaceM)
+                                    .clickable(enabled = !isPremium, onClick = onOpenPaywall)
+                            )
+                        }
+                    }
                 )
             },
             bottomBar = {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(DarkBg)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .background(MaterialTheme.colorScheme.background)
+                        .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+                        .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceM),
+                    verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(SurfaceDark, CircleShape)
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        BasicTextField(
-                            value = inputText,
-                            onValueChange = viewModel::onInputTextChanged,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(onSend = { if (!isProcessing && inputText.isNotBlank()) viewModel.handleSendMessage() }),
-                            cursorBrush = SolidColor(NeonAccent),
-                            decorationBox = { innerTextField ->
-                                if (inputText.isEmpty()) {
-                                    Text("Ajan'a sor...", color = Color.White.copy(alpha = 0.4f), fontSize = 16.sp)
-                                }
-                                innerTextField()
-                            }
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(
-                                    if (inputText.isNotBlank() && !isProcessing) NeonAccent else Color.Transparent,
-                                    CircleShape
-                                )
-                                .clickable(enabled = inputText.isNotBlank() && !isProcessing, onClick = viewModel::handleSendMessage),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isProcessing) {
-                                CircularProgressIndicator(color = NeonAccent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Send,
-                                    contentDescription = "Gönder",
-                                    tint = if (inputText.isNotBlank()) DarkBg else Color.White.copy(alpha = 0.3f),
-                                    modifier = Modifier.size(20.dp).padding(start = 2.dp)
-                                )
-                            }
-                        }
+                    quota?.let { q ->
+                        QuotaBanner(used = q.used, limit = q.limit, onUpgrade = onOpenPaywall)
                     }
+                    ChatInput(
+                        value = inputText,
+                        onValueChange = { if (it.length <= MAX_MESSAGE_LENGTH) viewModel.onInputTextChanged(it) },
+                        isProcessing = isProcessing,
+                        onSend = viewModel::handleSendMessage
+                    )
                 }
             }
         ) { innerPadding ->
@@ -288,174 +232,395 @@ fun DashboardScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
-                if (messages.isEmpty()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 24.dp)
-                            .padding(top = 40.dp),
-                        horizontalAlignment = Alignment.Start
-                    ) {
-                        Text(
-                            text = "Merhaba, ${userName.ifBlank { "Misafir" }}",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Bugün senin için ne bulabilirim?",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White.copy(alpha = 0.5f),
-                            lineHeight = 32.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(48.dp))
-
-                        val suggestions = listOf(
-                            "💻  Fiyat/performans laptop öner",
-                            "🎧  En ucuz AirPods nerede?",
-                            "📱  40.000 TL altı telefon bul"
-                        )
-
-                        suggestions.forEach { suggestion ->
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp)
-                                    .clickable {
-                                        viewModel.onInputTextChanged(suggestion.substring(3).trim())
-                                        viewModel.handleSendMessage()
-                                    },
-                                shape = RoundedCornerShape(16.dp),
-                                color = SurfaceDark,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(0.05f))
-                            ) {
-                                Text(
-                                    text = suggestion,
-                                    color = Color.White.copy(0.8f),
-                                    fontSize = 15.sp,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp, top = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // 1. MESAJLAR
-                        items(messages) { message ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .background(
-                                            color = if (message.isUser) NeonAccent else SurfaceDark,
-                                            shape = RoundedCornerShape(20.dp)
-                                        )
-                                        .padding(horizontal = 18.dp, vertical = 12.dp)
-                                        .widthIn(max = 290.dp)
-                                ) {
-                                    // NULL KONTROLÜ BURADA: message.text null gelirse "" olur.
-                                    val safeText = message.text ?: ""
-                                    if (message.isUser) {
-                                        Text(text = safeText, color = DarkBg, fontSize = 15.sp)
-                                    } else {
-                                        val annotated = remember(safeText) { parseAiStyledText(safeText) }
-                                        Text(text = annotated, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. STATUS
-                        if (statusText != null) {
-                            item {
-                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                                    if (isProcessing) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonAccent, strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                    }
-                                    Text(text = statusText!!, color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
-                                }
-                            }
-                        }
-
-                        // 3. ÜRÜNLER (Kendi Card yapın)
-                        if (products.isNotEmpty()) {
-                            item {
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(text = "Bulunan Ürünler", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            }
-
-                            val productChunks = products.chunked(2)
-                            items(productChunks) { chunk ->
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    chunk.forEach { product ->
-                                        Card(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .padding(vertical = 4.dp)
-                                                .clickable { onNavigateToProduct(product) },
-                                            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-                                            shape = RoundedCornerShape(16.dp)
-                                        ) {
-                                            Column(modifier = Modifier.padding(12.dp)) {
-                                                Box(modifier = Modifier.height(90.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(0.05f))) {
-                                                    if (!product.thumbnail.isNullOrBlank()) {
-                                                        AsyncImage(model = product.thumbnail, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                                    }
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(text = product.title ?: "-", color = Color.White, maxLines = 2, fontSize = 14.sp, overflow = TextOverflow.Ellipsis)
-                                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(text = "${product.price ?: "-"} TRY", color = NeonAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                                    IconButton(onClick = { viewModel.toggleFavorite(product) }, modifier = Modifier.size(24.dp)) {
-                                                        Icon(Icons.Default.FavoriteBorder, null, tint = NeonAccent, modifier = Modifier.size(18.dp))
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    if (chunk.size == 1) Spacer(modifier = Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
+                when {
+                    isLoadingMessages && messages.isEmpty() -> LoadingSkeleton(
+                        modifier = Modifier.padding(Dimens.SpaceL),
+                        lines = 5
+                    )
+                    messages.isEmpty() -> WelcomeContent(
+                        userName = userName,
+                        onSuggestion = viewModel::sendSuggestion
+                    )
+                    else -> ChatGrid(
+                        state = gridState,
+                        messages = messages,
+                        agentStep = agentPhase?.toStep(),
+                        pendingProducts = pendingProducts,
+                        favoriteLinks = favoriteLinks,
+                        currency = currency,
+                        onProductClick = onNavigateToProduct,
+                        onToggleFavorite = viewModel::toggleFavorite
+                    )
                 }
             }
         }
     }
 }
 
-fun parseAiStyledText(input: String?): androidx.compose.ui.text.AnnotatedString {
-    if (input.isNullOrBlank()) return buildAnnotatedString { append("") }
+private fun AgentPhase.toStep() = when (this) {
+    AgentPhase.SENDING, AgentPhase.ROUTING -> 0
+    AgentPhase.SEARCHING -> 1
+    AgentPhase.THINKING -> 2
+}
 
-    val pattern = Regex("(\\*\\*\\*(.+?)\\*\\*\\*|\\*\\*(.+?)\\*\\*|`(.+?)`)")
-    val builder = buildAnnotatedString {
-        var lastIndex = 0
-        for (m in pattern.findAll(input)) {
-            val range = m.range
-            if (range.first > lastIndex) append(input.substring(lastIndex, range.first))
-            val triple = m.groups[2]?.value
-            val double = m.groups[3]?.value
-            val code = m.groups[4]?.value
-            when {
-                triple != null -> withStyle(style = SpanStyle(fontWeight = FontWeight.Bold, fontSize = 18.sp)) { append(triple) }
-                double != null -> withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) { append(double) }
-                code != null -> withStyle(style = SpanStyle(fontFamily = FontFamily.Monospace, background = Color.DarkGray)) { append(code) }
-                else -> append(m.value)
+@Composable
+private fun ChatGrid(
+    state: androidx.compose.foundation.lazy.grid.LazyGridState,
+    messages: List<com.neilb.synapcart.domain.model.ChatMessage>,
+    agentStep: Int?,
+    pendingProducts: List<ProductDTO>,
+    favoriteLinks: Set<String>,
+    currency: String,
+    onProductClick: (ProductDTO, List<ProductDTO>) -> Unit,
+    onToggleFavorite: (ProductDTO) -> Unit
+) {
+    val fullSpan: (androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope.() -> GridItemSpan) = { GridItemSpan(maxLineSpan) }
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
+        horizontalArrangement = Arrangement.spacedBy(Dimens.SpaceS),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
+    ) {
+        messages.forEach { message ->
+            if (message.text.isNotBlank()) {
+                item(key = message.id, span = fullSpan) {
+                    ChatBubble(
+                        text = message.text,
+                        isUser = message.isUser,
+                        modifier = Modifier.padding(top = if (message.isUser) Dimens.SpaceM else Dimens.SpaceXs)
+                    )
+                }
             }
-            lastIndex = range.last + 1
+            items(message.products.size, key = { "${message.id}-$it" }) { index ->
+                val product = message.products[index]
+                ProductCard(
+                    product = product,
+                    currency = currency,
+                    isFavorite = product.link != null && product.link in favoriteLinks,
+                    onClick = { onProductClick(product, message.products) },
+                    onToggleFavorite = { onToggleFavorite(product) }
+                )
+            }
         }
-        if (lastIndex < input.length) append(input.substring(lastIndex))
+        if (agentStep != null) {
+            item(key = "status", span = fullSpan) {
+                StatusIndicator(step = agentStep, modifier = Modifier.padding(top = Dimens.SpaceXs))
+            }
+            if (pendingProducts.isNotEmpty()) {
+                items(pendingProducts, key = { "pending-${it.link ?: it.title}" }) { product ->
+                    ProductCard(
+                        product = product,
+                        currency = currency,
+                        isFavorite = product.link != null && product.link in favoriteLinks,
+                        onClick = { onProductClick(product, pendingProducts) },
+                        onToggleFavorite = { onToggleFavorite(product) }
+                    )
+                }
+            } else if (agentStep == 1) {
+                items(2, key = { "skeleton-$it" }) { ProductCardSkeleton() }
+            }
+        }
     }
-    return builder
+}
+
+private data class Suggestion(val icon: ImageVector, val text: Int)
+
+private val SUGGESTIONS = listOf(
+    Suggestion(Icons.Outlined.Laptop, R.string.suggestion_laptop),
+    Suggestion(Icons.Outlined.Headphones, R.string.suggestion_headphones),
+    Suggestion(Icons.Outlined.PhoneAndroid, R.string.suggestion_phone),
+    Suggestion(Icons.Outlined.Watch, R.string.suggestion_watch)
+)
+
+@Composable
+private fun WelcomeContent(userName: String, onSuggestion: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Dimens.ScreenPadding, vertical = Dimens.SpaceXl),
+        verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS)
+    ) {
+        Text(
+            text = if (userName.isBlank()) stringResource(R.string.dashboard_hello) else stringResource(R.string.dashboard_hello_name, userName.substringBefore(' ')),
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.brandGradient()
+        )
+        Text(
+            stringResource(R.string.dashboard_prompt),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(Dimens.SpaceXl))
+        SectionHeader(stringResource(R.string.dashboard_try))
+        SUGGESTIONS.forEach { suggestion ->
+            val text = stringResource(suggestion.text)
+            Surface(
+                onClick = { onSuggestion(text) },
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceL),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(suggestion.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(Dimens.IconM - 2.dp))
+                    Spacer(Modifier.width(Dimens.SpaceM))
+                    Text(text, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    isProcessing: Boolean,
+    onSend: () -> Unit
+) {
+    val canSend = value.isNotBlank() && !isProcessing
+    val placeholder = stringResource(R.string.chat_input_placeholder)
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(start = Dimens.SpaceL, end = Dimens.SpaceXs, top = Dimens.SpaceXs, bottom = Dimens.SpaceXs),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = Dimens.SpaceM)
+                    .semantics { contentDescription = placeholder },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                maxLines = 5,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send, capitalization = KeyboardCapitalization.Sentences),
+                keyboardActions = KeyboardActions(onSend = { if (canSend) onSend() }),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                decorationBox = { inner ->
+                    if (value.isEmpty()) {
+                        Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    inner()
+                }
+            )
+            IconButton(onClick = onSend, enabled = canSend) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .alpha(if (canSend) 1f else 0.35f)
+                        .background(
+                            if (canSend) SynapColors.BrandGradient else SolidColor(MaterialTheme.colorScheme.surfaceContainerHighest),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = stringResource(R.string.cd_send),
+                        tint = if (canSend) SynapColors.OnPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(Dimens.IconS + 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatDrawer(
+    sessions: List<ChatSessionItem>,
+    currentSessionId: Int?,
+    isPremium: Boolean,
+    onNewChat: () -> Unit,
+    onSelect: (ChatSessionItem) -> Unit,
+    onRename: (Int, String) -> Unit,
+    onDelete: (Int) -> Unit,
+    onFavorites: () -> Unit,
+    onProfile: () -> Unit,
+    onLogout: () -> Unit,
+    onUpgrade: () -> Unit
+) {
+    var renameTarget by remember { mutableStateOf<ChatSessionItem?>(null) }
+    var deleteTarget by remember { mutableStateOf<ChatSessionItem?>(null) }
+    val untitled = stringResource(R.string.chat_untitled)
+
+    renameTarget?.let { target ->
+        TextInputDialog(
+            title = stringResource(R.string.chat_rename_title),
+            label = stringResource(R.string.chat_rename_label),
+            initialValue = target.title.orEmpty(),
+            confirmLabel = stringResource(R.string.action_save),
+            onConfirm = { onRename(target.id, it); renameTarget = null },
+            onDismiss = { renameTarget = null }
+        )
+    }
+    deleteTarget?.let { target ->
+        ConfirmDialog(
+            title = stringResource(R.string.chat_delete_title),
+            message = stringResource(R.string.chat_delete_message, target.title ?: untitled),
+            confirmLabel = stringResource(R.string.action_delete),
+            destructive = true,
+            onConfirm = { onDelete(target.id); deleteTarget = null },
+            onDismiss = { deleteTarget = null }
+        )
+    }
+
+    ModalDrawerSheet(
+        drawerContainerColor = MaterialTheme.colorScheme.surface,
+        drawerShape = MaterialTheme.shapes.extraLarge.copy(topStart = androidx.compose.foundation.shape.CornerSize(0.dp), bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp)),
+        modifier = Modifier.width(312.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Dimens.SpaceXl, vertical = Dimens.SpaceL),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BrandLockup(modifier = Modifier.weight(1f))
+            PlanBadge(isPremium = isPremium, modifier = Modifier.clickable(enabled = !isPremium, onClick = onUpgrade))
+        }
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.chat_new), style = MaterialTheme.typography.labelLarge) },
+            icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
+            selected = false,
+            onClick = onNewChat,
+            colors = NavigationDrawerItemDefaults.colors(
+                unselectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                unselectedIconColor = MaterialTheme.colorScheme.primary,
+                unselectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ),
+            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+        )
+        Spacer(Modifier.height(Dimens.SpaceS))
+
+        val grouped = remember(sessions) { sessions.groupBy { sessionGroupOf(it.createdAt) }.toSortedMap() }
+        androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.weight(1f)) {
+            if (sessions.isEmpty()) {
+                item {
+                    Text(
+                        stringResource(R.string.chat_history_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = Dimens.SpaceXl, vertical = Dimens.SpaceM)
+                    )
+                }
+            }
+            grouped.forEach { (group, items) ->
+                item(key = "header-$group") {
+                    SectionHeader(
+                        stringResource(group.label()),
+                        modifier = Modifier.padding(start = Dimens.SpaceXl, top = Dimens.SpaceM, bottom = Dimens.SpaceXs)
+                    )
+                }
+                items(items.size, key = { items[it].id }) { index ->
+                    val session = items[index]
+                    SessionRow(
+                        title = session.title ?: untitled,
+                        locked = session.locked,
+                        selected = session.id == currentSessionId,
+                        onClick = { onSelect(session) },
+                        onRename = { renameTarget = session },
+                        onDelete = { deleteTarget = session }
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(vertical = Dimens.SpaceS))
+        DrawerLink(Icons.Outlined.FavoriteBorder, stringResource(R.string.favorites_title), onFavorites)
+        DrawerLink(Icons.Outlined.PersonOutline, stringResource(R.string.profile_title), onProfile)
+        DrawerLink(Icons.AutoMirrored.Outlined.Logout, stringResource(R.string.action_logout), onLogout, danger = true)
+        Spacer(Modifier.height(Dimens.SpaceM))
+    }
+}
+
+private fun SessionGroup.label() = when (this) {
+    SessionGroup.TODAY -> R.string.group_today
+    SessionGroup.YESTERDAY -> R.string.group_yesterday
+    SessionGroup.LAST_7_DAYS -> R.string.group_last_7_days
+    SessionGroup.LAST_30_DAYS -> R.string.group_last_30_days
+    SessionGroup.OLDER -> R.string.group_older
+}
+
+@Composable
+private fun SessionRow(
+    title: String,
+    locked: Boolean,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val lockedLabel = stringResource(R.string.chat_locked)
+    NavigationDrawerItem(
+        label = {
+            Text(
+                title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (locked) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified
+            )
+        },
+        icon = {
+            if (locked) {
+                Icon(Icons.Outlined.Lock, contentDescription = null, tint = SynapColors.PremiumGold, modifier = Modifier.size(Dimens.IconS))
+            } else {
+                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(Dimens.IconS))
+            }
+        },
+        selected = selected,
+        onClick = onClick,
+        badge = {
+            Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(Dimens.TouchTarget)) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.cd_chat_options, title))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_rename)) },
+                        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                        onClick = { menuOpen = false; onRename() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                        onClick = { menuOpen = false; onDelete() }
+                    )
+                }
+            }
+        },
+        colors = NavigationDrawerItemDefaults.colors(
+            selectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unselectedContainerColor = androidx.compose.ui.graphics.Color.Transparent
+        ),
+        modifier = Modifier
+            .padding(horizontal = Dimens.SpaceM)
+            .height(Dimens.TouchTarget + 4.dp)
+            .semantics { if (locked) stateDescription = lockedLabel }
+    )
+}
+
+@Composable
+private fun DrawerLink(icon: ImageVector, label: String, onClick: () -> Unit, danger: Boolean = false) {
+    val color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+    NavigationDrawerItem(
+        label = { Text(label, color = color) },
+        icon = { Icon(icon, contentDescription = null, tint = if (danger) color else MaterialTheme.colorScheme.onSurfaceVariant) },
+        selected = false,
+        onClick = onClick,
+        colors = NavigationDrawerItemDefaults.colors(unselectedContainerColor = androidx.compose.ui.graphics.Color.Transparent),
+        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+    )
 }

@@ -2,11 +2,17 @@ package com.neilb.synapcart.ui.screens.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.billing.UserPlanRepository
+import com.neilb.synapcart.data.remote.toUiText
 import com.neilb.synapcart.domain.use_case.user.UserUseCases
-import com.neilb.synapcart.util.SessionManager
+import com.neilb.synapcart.util.AppLocale
 import com.neilb.synapcart.util.SnackbarController
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -15,12 +21,15 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val userUseCases: UserUseCases,
-    private val sessionManager: SessionManager,
-    private val snackbarController: SnackbarController
+    private val snackbarController: SnackbarController,
+    planRepository: UserPlanRepository
 ) : ViewModel() {
 
     private val _fullName = MutableStateFlow("")
     val fullName: StateFlow<String> = _fullName.asStateFlow()
+
+    private val _email = MutableStateFlow("")
+    val email: StateFlow<String> = _email.asStateFlow()
 
     private val _language = MutableStateFlow("tr")
     val language: StateFlow<String> = _language.asStateFlow()
@@ -28,11 +37,25 @@ class ProfileViewModel @Inject constructor(
     private val _currency = MutableStateFlow("TRY")
     val currency: StateFlow<String> = _currency.asStateFlow()
 
+    /** Follows purchases made on the paywall while this screen is in the back stack. */
+    val isPremium: StateFlow<Boolean> = planRepository.state
+        .map { it.isPremium }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Raw server timestamp of the premium expiry, if any. */
+    val planExpiresAt: StateFlow<String?> = planRepository.state
+        .map { it.expiresAt }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _isAccountDeleted = MutableStateFlow(false)
     val isAccountDeleted: StateFlow<Boolean> = _isAccountDeleted.asStateFlow()
+
+    /** True once a password change succeeded (the dialog closes). */
+    private val _passwordChanged = MutableStateFlow(false)
+    val passwordChanged: StateFlow<Boolean> = _passwordChanged.asStateFlow()
 
     init {
         fetchProfileData()
@@ -41,18 +64,14 @@ class ProfileViewModel @Inject constructor(
     private fun fetchProfileData() {
         viewModelScope.launch {
             _isLoading.value = true
-
-            val result = userUseCases.getUser()
-
-            result.fold(
-                onSuccess = { profileData ->
-                    _fullName.value = profileData.fullName ?: ""
-                    _language.value = profileData.language ?: "tr"
-                    _currency.value = profileData.currency ?: "TRY"
+            userUseCases.getUser().fold(
+                onSuccess = { profile ->
+                    _fullName.value = profile.fullName.orEmpty()
+                    _email.value = profile.email
+                    _language.value = AppLocale.normalize(profile.language ?: AppLocale.current())
+                    _currency.value = profile.currency ?: "TRY"
                 },
-                onFailure = {
-                    snackbarController.showSnackbar("Profil bilgileri alınamadı.")
-                }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_profile_load)) }
             )
             _isLoading.value = false
         }
@@ -63,46 +82,55 @@ class ProfileViewModel @Inject constructor(
     fun onCurrencyChange(curr: String) { _currency.value = curr }
 
     fun updateProfile() {
+        if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
-
-            val result = userUseCases.updateProfile(
+            userUseCases.updateProfile(
                 fullName = _fullName.value.ifBlank { null },
                 language = _language.value,
                 currency = _currency.value
+            ).fold(
+                onSuccess = { snackbarController.showSnackbar(R.string.profile_saved) },
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_profile_update)) }
             )
-
-            result.fold(
-                onSuccess = {
-                    snackbarController.showSnackbar("Profil başarıyla güncellendi!")
-                    sessionManager.saveUserName(_fullName.value)
-                },
-                onFailure = {
-                    snackbarController.showSnackbar("Güncelleme başarısız oldu.")
-                }
-            )
-
             _isLoading.value = false
         }
     }
 
-    fun deleteAccount() {
+    fun changePassword(currentPassword: String, newPassword: String) {
+        if (_isLoading.value) return
         viewModelScope.launch {
             _isLoading.value = true
-
-            val result = userUseCases.deleteAccount()
-
-            result.fold(
+            userUseCases.changePassword(currentPassword, newPassword).fold(
                 onSuccess = {
-                    sessionManager.clearSession()
-                    snackbarController.showSnackbar("Hesabınız kalıcı olarak silindi.")
+                    _passwordChanged.value = true
+                    snackbarController.showSnackbar(R.string.password_changed)
+                },
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_password_update_failed)) }
+            )
+            _isLoading.value = false
+        }
+    }
+
+    fun onPasswordChangeHandled() {
+        _passwordChanged.value = false
+    }
+
+    fun deleteAccount(password: String) {
+        if (_isLoading.value) return
+        viewModelScope.launch {
+            if (password.isBlank()) {
+                snackbarController.showSnackbar(R.string.error_delete_needs_password)
+                return@launch
+            }
+            _isLoading.value = true
+            userUseCases.deleteAccount(password).fold(
+                onSuccess = {
+                    snackbarController.showSnackbar(R.string.account_deleted)
                     _isAccountDeleted.value = true
                 },
-                onFailure = {
-                    snackbarController.showSnackbar("Hesap silinirken bir hata oluştu.")
-                }
+                onFailure = { e -> snackbarController.showSnackbar(e.toUiText(R.string.error_account_delete)) }
             )
-
             _isLoading.value = false
         }
     }

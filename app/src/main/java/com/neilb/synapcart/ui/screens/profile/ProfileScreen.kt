@@ -2,153 +2,338 @@ package com.neilb.synapcart.ui.screens.profile
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PrivacyTip
+import androidx.compose.material.icons.outlined.WorkspacePremium
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.neilb.synapcart.BuildConfig
+import com.neilb.synapcart.R
+import com.neilb.synapcart.data.billing.BillingRepository
+import com.neilb.synapcart.ui.components.ChipGroup
+import com.neilb.synapcart.ui.components.ConfirmDialog
+import com.neilb.synapcart.ui.components.PlanBadge
 import com.neilb.synapcart.ui.components.PrimaryButton
-import com.neilb.synapcart.ui.components.SynapCartTextField
-import com.neilb.synapcart.ui.screens.dashboard.SurfaceDark
-import com.neilb.synapcart.ui.theme.SynapDarkBg
-import com.neilb.synapcart.ui.theme.SynapForeground
+import com.neilb.synapcart.ui.components.SecondaryButton
+import com.neilb.synapcart.ui.components.SectionHeader
+import com.neilb.synapcart.ui.components.SettingsCard
+import com.neilb.synapcart.ui.components.SettingsRow
+import com.neilb.synapcart.ui.components.SynapScaffold
+import com.neilb.synapcart.ui.components.SynapTextField
+import com.neilb.synapcart.ui.components.SynapTopBar
+import com.neilb.synapcart.ui.components.currentLocale
+import com.neilb.synapcart.ui.screens.onboarding.CURRENCY_OPTIONS
+import com.neilb.synapcart.ui.theme.Dimens
+import com.neilb.synapcart.ui.theme.SynapColors
+import com.neilb.synapcart.util.AppLocale
+import com.neilb.synapcart.util.PasswordRules
+import com.neilb.synapcart.util.parseServerTimestamp
+import java.text.DateFormat
+import java.util.Date
 
-@OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onNavigateBack: () -> Unit,
+    onOpenPaywall: () -> Unit,
     onAccountDeleted: () -> Unit
 ) {
-    val fullName by viewModel.fullName.collectAsState()
-    val language by viewModel.language.collectAsState()
-    val currency by viewModel.currency.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val isAccountDeleted by viewModel.isAccountDeleted.collectAsState()
+    val fullName by viewModel.fullName.collectAsStateWithLifecycle()
+    val language by viewModel.language.collectAsStateWithLifecycle()
+    val currency by viewModel.currency.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
+    val isAccountDeleted by viewModel.isAccountDeleted.collectAsStateWithLifecycle()
+    val email by viewModel.email.collectAsStateWithLifecycle()
+    val passwordChanged by viewModel.passwordChanged.collectAsStateWithLifecycle()
+    val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
+    val planExpiresAt by viewModel.planExpiresAt.collectAsStateWithLifecycle()
 
-    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showPasswordDialog by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
 
     LaunchedEffect(isAccountDeleted) {
         if (isAccountDeleted) onAccountDeleted()
     }
+    LaunchedEffect(passwordChanged) {
+        if (passwordChanged) {
+            showPasswordDialog = false
+            viewModel.onPasswordChangeHandled()
+        }
+    }
 
+    if (showPasswordDialog) {
+        ChangePasswordDialog(
+            isLoading = isLoading,
+            onDismiss = { showPasswordDialog = false },
+            onConfirm = { current, new -> viewModel.changePassword(current, new) }
+        )
+    }
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Hesabı Sil", color = Color.White) },
-            text = { Text("Hesabınızı kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.", color = Color.White.copy(alpha = 0.8f)) },
-            confirmButton = {
-                TextButton(onClick = { showDeleteDialog = false; viewModel.deleteAccount() }) {
-                    Text("Sil", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("İptal", color = Color.White)
-                }
-            },
-            containerColor = SurfaceDark
+        DeleteAccountDialog(
+            onDismiss = { showDeleteDialog = false },
+            onConfirm = { password ->
+                showDeleteDialog = false
+                viewModel.deleteAccount(password)
+            }
         )
     }
 
-    Scaffold(
-        containerColor = SynapDarkBg,
-        topBar = {
-            TopAppBar(
-                title = { Text("Profil Düzenle", color = Color.White, fontWeight = FontWeight.SemiBold) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Geri", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        }
+    SynapScaffold(
+        topBar = { SynapTopBar(title = stringResource(R.string.profile_title), onBack = onNavigateBack) }
     ) { innerPadding ->
-        if (isLoading && fullName.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = SynapForeground)
+        if (isLoading && email.isEmpty()) {
+            Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
-        } else {
+            return@SynapScaffold
+        }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
+                .imePadding(),
+            contentAlignment = Alignment.TopCenter
+        ) {
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .widthIn(max = Dimens.ContentMaxWidth)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Dimens.SpaceL, vertical = Dimens.SpaceS),
+                verticalArrangement = Arrangement.spacedBy(Dimens.SpaceM)
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+                ProfileHeader(name = fullName, email = email, isPremium = isPremium)
 
-                // Profil İkonu
-                Box(
-                    modifier = Modifier
-                        .size(90.dp)
-                        .background(SurfaceDark, shape = CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = SynapForeground, modifier = Modifier.size(45.dp))
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                SynapCartTextField(
-                    value = fullName,
-                    onValueChange = viewModel::onFullNameChange,
-                    label = "Ad Soyad",
-                    leadingIcon = Icons.Default.Person
+                PlanCard(
+                    isPremium = isPremium,
+                    expiresAt = planExpiresAt,
+                    onUpgrade = onOpenPaywall,
+                    onManage = { uriHandler.openUri(BillingRepository.manageSubscriptionUrl(context.packageName)) }
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                ProfileSelectionGroup("Dil", listOf("Türkçe" to "tr", "English" to "en"), language) { viewModel.onLanguageChange(it) }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                ProfileSelectionGroup("Para Birimi", listOf("₺ (TRY)" to "TRY", "$ (USD)" to "USD"), currency) { viewModel.onCurrencyChange(it) }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                PrimaryButton(text = "Değişiklikleri Kaydet", isLoading = isLoading, onClick = { viewModel.updateProfile() })
-
-                TextButton(
-                    onClick = { showDeleteDialog = true },
-                    modifier = Modifier.padding(top = 16.dp, bottom = 24.dp)
-                ) {
-                    Text(text = "Hesabımı Sil", color = Color(0xFFEF4444), fontSize = 14.sp)
+                SectionHeader(stringResource(R.string.profile_section_settings), Modifier.padding(top = Dimens.SpaceS))
+                SettingsCard {
+                    Column(Modifier.padding(Dimens.SpaceL), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceM)) {
+                        SynapTextField(
+                            value = fullName,
+                            onValueChange = viewModel::onFullNameChange,
+                            label = stringResource(R.string.field_full_name),
+                            leadingIcon = Icons.Outlined.Person,
+                            imeAction = ImeAction.Done
+                        )
+                        Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ChipGroup(
+                            options = listOf(
+                                stringResource(R.string.language_turkish) to AppLocale.TURKISH,
+                                stringResource(R.string.language_english) to AppLocale.ENGLISH
+                            ),
+                            selected = language,
+                            onSelect = viewModel::onLanguageChange
+                        )
+                        Text(stringResource(R.string.settings_currency), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        ChipGroup(options = CURRENCY_OPTIONS, selected = currency, onSelect = viewModel::onCurrencyChange)
+                        PrimaryButton(
+                            text = stringResource(R.string.action_save_changes),
+                            isLoading = isLoading,
+                            onClick = viewModel::updateProfile
+                        )
+                    }
                 }
+
+                SectionHeader(stringResource(R.string.profile_section_account), Modifier.padding(top = Dimens.SpaceS))
+                SettingsCard {
+                    SettingsRow(stringResource(R.string.profile_change_password), Icons.Outlined.Key, { showPasswordDialog = true })
+                }
+
+                SectionHeader(stringResource(R.string.profile_section_about), Modifier.padding(top = Dimens.SpaceS))
+                SettingsCard {
+                    SettingsRow(stringResource(R.string.legal_privacy), Icons.Outlined.PrivacyTip, { uriHandler.openUri(BuildConfig.WEB_URL + "privacy") })
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(start = 56.dp))
+                    SettingsRow(stringResource(R.string.legal_terms), Icons.Outlined.Description, { uriHandler.openUri(BuildConfig.WEB_URL + "terms") })
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.padding(start = 56.dp))
+                    SettingsRow(stringResource(R.string.profile_support), Icons.AutoMirrored.Outlined.HelpOutline, { uriHandler.openUri(BuildConfig.WEB_URL + "support") })
+                }
+
+                SettingsCard(Modifier.padding(top = Dimens.SpaceS)) {
+                    SettingsRow(
+                        stringResource(R.string.profile_delete_account),
+                        Icons.Outlined.DeleteForever,
+                        { showDeleteDialog = true },
+                        tint = MaterialTheme.colorScheme.error,
+                        showChevron = false
+                    )
+                }
+
+                Text(
+                    text = stringResource(R.string.profile_version, BuildConfig.VERSION_NAME),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(vertical = Dimens.SpaceL)
+                )
             }
         }
     }
 }
 
 @Composable
-fun ProfileSelectionGroup(title: String, options: List<Pair<String, String>>, selectedValue: String, onSelect: (String) -> Unit) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(text = title, color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            options.forEach { (label, value) ->
-                val isSelected = selectedValue == value
-                Surface(
-                    modifier = Modifier.weight(1f).height(48.dp).clickable { onSelect(value) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isSelected) SynapForeground.copy(alpha = 0.15f) else SurfaceDark,
-                    border = BorderStroke(1.dp, if (isSelected) SynapForeground else Color.White.copy(alpha = 0.1f))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(text = label, color = if (isSelected) SynapForeground else Color.White, fontSize = 14.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+private fun ProfileHeader(name: String, email: String, isPremium: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = Dimens.SpaceS)) {
+        val initials = name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
+        Box(
+            Modifier.size(64.dp).background(SynapColors.BrandGradient, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(initials.ifEmpty { "?" }, style = MaterialTheme.typography.titleLarge, color = SynapColors.OnPrimary)
+        }
+        Spacer(Modifier.width(Dimens.SpaceL))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceXxs)) {
+            Text(name.ifBlank { email }, style = MaterialTheme.typography.titleLarge)
+            Text(email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        PlanBadge(isPremium)
+    }
+}
+
+@Composable
+private fun PlanCard(isPremium: Boolean, expiresAt: String?, onUpgrade: () -> Unit, onManage: () -> Unit) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, if (isPremium) SynapColors.PremiumGold.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(Dimens.SpaceL), verticalArrangement = Arrangement.spacedBy(Dimens.SpaceM)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Icon(
+                    Icons.Outlined.WorkspacePremium,
+                    contentDescription = null,
+                    tint = SynapColors.PremiumGold
+                )
+                Spacer(Modifier.width(Dimens.SpaceM))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        stringResource(if (isPremium) R.string.plan_card_premium_title else R.string.plan_card_free_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    val expiry = parseServerTimestamp(expiresAt)?.let {
+                        DateFormat.getDateInstance(DateFormat.MEDIUM, currentLocale()).format(Date(it))
                     }
+                    Text(
+                        when {
+                            isPremium && expiry != null -> stringResource(R.string.plan_card_renews, expiry)
+                            isPremium -> stringResource(R.string.plan_card_premium_body)
+                            else -> stringResource(R.string.plan_card_free_body)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
+            if (isPremium) {
+                SecondaryButton(text = stringResource(R.string.plan_manage), onClick = onManage)
+            } else {
+                PrimaryButton(
+                    text = stringResource(R.string.action_upgrade_premium),
+                    onClick = onUpgrade,
+                    brush = SynapColors.PremiumGradient,
+                    contentColor = SynapColors.OnPremiumGold
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun ChangePasswordDialog(
+    isLoading: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (current: String, newPassword: String) -> Unit
+) {
+    var current by rememberSaveable { mutableStateOf("") }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirm by rememberSaveable { mutableStateOf("") }
+    val mismatch = confirm.isNotEmpty() && newPassword != confirm
+    val rule = newPassword.takeIf { it.isNotEmpty() }?.let { PasswordRules.validate(it) }
+
+    ConfirmDialog(
+        title = stringResource(R.string.profile_change_password),
+        message = stringResource(R.string.password_change_message),
+        confirmLabel = stringResource(R.string.action_save),
+        onConfirm = { onConfirm(current, newPassword) },
+        onDismiss = onDismiss,
+        confirmEnabled = !isLoading && current.isNotBlank() && newPassword.isNotBlank() && rule == null && newPassword == confirm
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(Dimens.SpaceS)) {
+            SynapTextField(current, { current = it }, stringResource(R.string.field_current_password), isPassword = true)
+            SynapTextField(
+                newPassword, { newPassword = it }, stringResource(R.string.field_new_password), isPassword = true,
+                isError = rule != null, supportingText = stringResource(rule ?: R.string.password_hint)
+            )
+            SynapTextField(
+                confirm, { confirm = it }, stringResource(R.string.field_confirm_password), isPassword = true,
+                imeAction = ImeAction.Done,
+                isError = mismatch, supportingText = if (mismatch) stringResource(R.string.error_passwords_mismatch) else null
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeleteAccountDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var password by rememberSaveable { mutableStateOf("") }
+    ConfirmDialog(
+        title = stringResource(R.string.profile_delete_account),
+        message = stringResource(R.string.delete_account_message),
+        confirmLabel = stringResource(R.string.delete_account_confirm),
+        destructive = true,
+        confirmEnabled = password.isNotBlank(),
+        onConfirm = { onConfirm(password) },
+        onDismiss = onDismiss
+    ) {
+        SynapTextField(password, { password = it }, stringResource(R.string.field_password), isPassword = true, imeAction = ImeAction.Done)
+        Spacer(Modifier.height(0.dp))
     }
 }

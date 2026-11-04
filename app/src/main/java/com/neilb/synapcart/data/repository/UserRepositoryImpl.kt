@@ -1,66 +1,55 @@
 package com.neilb.synapcart.data.repository
 
-import com.google.gson.Gson
-import com.neilb.synapcart.data.model.ErrorResponse
+import com.neilb.synapcart.data.billing.UserPlanRepository
+import com.neilb.synapcart.data.model.AccountDeleteRequest
+import com.neilb.synapcart.data.model.PasswordChangeRequest
 import com.neilb.synapcart.data.model.UserProfile
 import com.neilb.synapcart.data.model.UserProfileUpdateRequest
 import com.neilb.synapcart.data.remote.UserApiService
+import com.neilb.synapcart.data.remote.requireSuccess
+import com.neilb.synapcart.data.remote.safeApiCall
+import com.neilb.synapcart.domain.repository.FavoritesRepository
 import com.neilb.synapcart.domain.repository.UserRepository
-import retrofit2.HttpException
+import com.neilb.synapcart.util.AppLocale
+import com.neilb.synapcart.util.SessionManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class UserRepositoryImpl(
-    private val apiService: UserApiService
+    private val apiService: UserApiService,
+    private val sessionManager: SessionManager,
+    private val favoritesRepository: FavoritesRepository,
+    private val planRepository: UserPlanRepository
 ) : UserRepository {
 
-    override suspend fun updateProfile(fullName: String?, language: String?, currency: String?): Result<Unit> {
-        return try {
-            val request = UserProfileUpdateRequest(fullName, language, currency)
-            apiService.updateProfile(request)
-            Result.success(Unit)
-        } catch (e: HttpException) {
-            val errorJson = e.response()?.errorBody()?.string()
-            val errorMessage = try {
-                Gson().fromJson(errorJson, ErrorResponse::class.java).detail
-            } catch (_: Exception) {
-                "Sunucu ile iletişimde bir sorun oluştu."
-            }
-            Result.failure(Exception(errorMessage))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    override suspend fun getUserProfile(): Result<UserProfile> =
+        safeApiCall { apiService.getUserProfile() }.onSuccess { cache(it) }
+
+    override suspend fun updateProfile(fullName: String?, language: String?, currency: String?): Result<UserProfile> =
+        safeApiCall {
+            apiService.updateProfile(UserProfileUpdateRequest(fullName?.trim(), language, currency))
+        }.onSuccess { cache(it) }
+
+    override suspend fun changePassword(currentPassword: String, newPassword: String): Result<Unit> = safeApiCall {
+        val token = apiService.changePassword(PasswordChangeRequest(currentPassword, newPassword))
+        // Every other token was revoked; keep this device signed in with the new one.
+        sessionManager.saveAuthToken(token.accessToken, token.userName)
     }
 
-    override suspend fun deleteAccount(): Result<Unit> {
-        return try {
-            apiService.deleteAccount()
-            Result.success(Unit)
-        } catch (e: HttpException) {
-            val errorJson = e.response()?.errorBody()?.string()
-            val errorMessage = try {
-                Gson().fromJson(errorJson, ErrorResponse::class.java).detail
-            } catch (_: Exception) {
-                "Sunucu ile iletişimde bir sorun oluştu."
-            }
-            Result.failure(Exception(errorMessage))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    override suspend fun deleteAccount(password: String?): Result<Unit> = safeApiCall {
+        apiService.deleteAccount(AccountDeleteRequest(password?.takeIf { it.isNotEmpty() })).requireSuccess()
+        favoritesRepository.clear()
+        planRepository.clear()
+        sessionManager.clearSession()
+        sessionManager.saveOnboardingCompleted(false)
     }
 
-    override suspend fun getUserProfile(): Result<UserProfile> {
-        return try {
-            val response = apiService.getUserProfile()
-            Result.success(response)
-        } catch (e: HttpException) {
-            val errorJson = e.response()?.errorBody()?.string()
-            val errorMessage = try {
-                Gson().fromJson(errorJson, ErrorResponse::class.java).detail
-            } catch (_: Exception) {
-                "Sunucu ile iletişimde bir sorun oluştu."
-            }
-            Result.failure(Exception(errorMessage))
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+    private suspend fun cache(profile: UserProfile) {
+        profile.fullName?.takeIf { it.isNotBlank() }?.let { sessionManager.saveUserName(it) }
+        sessionManager.savePreferences(profile.language, profile.currency)
+        sessionManager.savePlan(profile.plan)
+        planRepository.update(profile)
+        // The profile language drives the UI language (also on a new device after login).
+        withContext(Dispatchers.Main) { AppLocale.apply(profile.language) }
     }
 }
