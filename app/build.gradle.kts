@@ -31,7 +31,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Public web pages (privacy policy, terms, support) linked from the app.
-        buildConfigField("String", "WEB_URL", "\"https://synapcart-web.vercel.app/\"")
+        buildConfigField("String", "WEB_URL", "\"https://synapcart.emreaydin.dev/\"")
 
         // Play Billing. OWNER: must match the Play Console subscription and its base plans.
         buildConfigField("String", "PREMIUM_PRODUCT_ID", "\"synapcart_premium\"")
@@ -59,7 +59,7 @@ android {
             buildConfigField("String", "BASE_URL", "\"$debugBaseUrl\"")
         }
         release {
-            buildConfigField("String", "BASE_URL", "\"https://synapcart-backend.onrender.com/\"")
+            buildConfigField("String", "BASE_URL", "\"https://api.synapcart.emreaydin.dev/\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -67,6 +67,15 @@ android {
                 "proguard-rules.pro"
             )
             releaseSigning?.let { signingConfig = it }
+        }
+        // Release-like build against the staging Worker (staging-api / staging web).
+        create("staging") {
+            initWith(getByName("release"))
+            versionNameSuffix = "-staging"
+            matchingFallbacks += listOf("release")
+            buildConfigField("String", "BASE_URL", "\"https://staging-api.synapcart.emreaydin.dev/\"")
+            buildConfigField("String", "WEB_URL", "\"https://staging.synapcart.emreaydin.dev/\"")
+            releaseSigning?.let { signingConfig = it } ?: run { signingConfig = signingConfigs.getByName("debug") }
         }
     }
     compileOptions {
@@ -96,7 +105,6 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.appcompat)
     testImplementation(libs.junit)
-    testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -104,10 +112,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // Network - Retrofit & OkHttp
-    implementation(libs.retrofit)
-    implementation(libs.converter.gson)
-    implementation(libs.logging.interceptor)
+    // Shared KMP module: API client (Ktor), repositories, session storage, business rules
+    implementation(project(":shared"))
 
     // Play Billing and Firebase Cloud Messaging
     implementation(libs.billing.ktx)
@@ -122,9 +128,6 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
-
-    //DataStore
-    implementation(libs.androidx.datastore.preferences)
 
     //Navigation
     implementation(libs.androidx.navigation.compose)
