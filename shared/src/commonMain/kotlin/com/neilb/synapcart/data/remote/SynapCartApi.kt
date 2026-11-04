@@ -52,7 +52,7 @@ import io.ktor.utils.io.readLine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.serialization.json.Json
 
 /** JSON settings shared by the client and tests. */
@@ -172,7 +172,9 @@ class SynapCartApi(
      * (completed / out_of_scope / error) and throws [ApiException] on HTTP errors.
      * Cancelling the collector cancels the HTTP call.
      */
-    fun streamAgent(sessionId: Int, message: String): Flow<AgentStreamEvent> = flow {
+    fun streamAgent(sessionId: Int, message: String): Flow<AgentStreamEvent> = channelFlow {
+        // channelFlow, not flow: on Kotlin/Native Ktor runs the execute {} block on
+        // Dispatchers.IO, and a plain flow forbids emitting from another context.
         var sent: String? = null
         val statement = client.prepareRequest {
             sent = prepare(HttpMethod.Post, "chat/agent/$sessionId/stream")
@@ -192,7 +194,7 @@ class SynapCartApi(
                 // which failed on Kotlin/Native.)
                 val line = channel.readLine() ?: break
                 val event = parseSseLine(line) ?: continue
-                emit(event)
+                send(event)
                 if (event.isFinal) break
             }
         }
