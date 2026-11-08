@@ -62,7 +62,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
         # The Kotlin framework built by the pre-build script below.
-        FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
+        FRAMEWORK_SEARCH_PATHS: $(inherited) "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
         OTHER_LDFLAGS: $(inherited) -framework Shared
     preBuildScripts:
       - name: Build Kotlin shared framework
@@ -93,7 +93,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/SynapCart.app/SynapCart
         BUNDLE_LOADER: $(TEST_HOST)
-        FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
+        FRAMEWORK_SEARCH_PATHS: $(inherited) "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
 
 schemes:
   SynapCart:
